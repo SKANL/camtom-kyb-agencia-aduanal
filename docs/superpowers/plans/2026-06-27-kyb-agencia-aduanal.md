@@ -462,7 +462,7 @@ PR hacia `main` siguiendo `branch-pr`.
 **Interfaces:**
 - Produces: `normalize_rfc(raw: str) -> str`, `validar_estructura(rfc: str) -> bool` — usados por TODO el resto del backend (ETL, conciliación, scoring) para tratar el RFC siempre igual.
 
-- [ ] **Paso 1 — Test:**
+- [x] **Paso 1 — Test:**
 ```python
 from domain.rfc import normalize_rfc, validar_estructura
 
@@ -478,8 +478,8 @@ def test_validar_estructura_rechaza_fecha_imposible():
 def test_validar_estructura_rechaza_longitud_incorrecta():
     assert validar_estructura("ABC123") is False
 ```
-- [ ] **Paso 2:** `uv run pytest src/tests/test_rfc.py -v` → falla (módulo no existe).
-- [ ] **Paso 3 — Implementación:**
+- [x] **Paso 2:** `uv run pytest src/tests/test_rfc.py -v` → falla (módulo no existe).
+- [x] **Paso 3 — Implementación:** (ampliada con dígito verificador real módulo-11 — ver commit `0b76394` y Engram `camtom-prueba-tecnica`#38; el código verbatim de abajo es el original del plan, sin el dígito verificador)
 ```python
 import re
 from datetime import date
@@ -505,8 +505,8 @@ def validar_estructura(rfc: str) -> bool:
             continue
     return False
 ```
-- [ ] **Paso 4:** `uv run pytest src/tests/test_rfc.py -v` → pasa.
-- [ ] **Paso 5:** `git add src/domain/rfc.py src/tests/test_rfc.py && git commit -m "feat: normalizador y validador de estructura de RFC"`
+- [x] **Paso 4:** `uv run pytest src/tests/test_rfc.py -v` → pasa (6 tests, incluye dígito verificador).
+- [x] **Paso 5:** `git add src/domain/rfc.py src/tests/test_rfc.py && git commit -m "feat: normalizador y validador de estructura de RFC"`
 
 ### Task 2.2: Parser XLSX Art. 69 (con captura de fracción)
 
