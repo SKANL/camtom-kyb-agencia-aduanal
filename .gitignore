@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# shadcn MCP tooling artifacts en la raíz (el config real es .mcp.json; estos son
+# regenerables vía `npx shadcn@latest mcp`). Solo la raíz — el frontend/ tiene el suyo.
+/package.json
+/package-lock.json
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Env / secrets — NUNCA commitear
+.env
+.env.*
+!.env.example
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Vercel
+.vercel/
+
+# Supabase local
+.branches/
+.temp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
