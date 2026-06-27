@@ -518,7 +518,7 @@ def validar_estructura(rfc: str) -> bool:
 - Consumes: `domain.rfc.normalize_rfc`
 - Produces: `parse_art_69(xlsx_path: str) -> list[dict]` con claves `rfc`, `situacion`, `fraccion`; `es_unicamente_fraccion_vi(fraccion_raw: str) -> bool` — usado por el factor `sat_69_incumplido` en Fase 3 para aplicar la excepción que exige el brief.
 
-- [ ] **Paso 1 — Test (con fixture XLSX generado en memoria, no depende de internet):**
+- [x] **Paso 1 — Test (con fixture XLSX generado en memoria, no depende de internet):**
 ```python
 import pandas as pd
 import pytest
@@ -545,8 +545,8 @@ def test_es_unicamente_fraccion_vi_true():
 def test_es_unicamente_fraccion_vi_false_con_otra_fraccion():
     assert es_unicamente_fraccion_vi("I; VI") is False
 ```
-- [ ] **Paso 2:** `uv run pytest src/tests/test_sat_parsers.py -v` → falla.
-- [ ] **Paso 3 — Implementación:**
+- [x] **Paso 2:** `uv run pytest src/tests/test_sat_parsers.py -v` → falla.
+- [x] **Paso 3 — Implementación:**
 ```python
 from dataclasses import dataclass
 
@@ -589,9 +589,9 @@ def es_unicamente_fraccion_vi(fraccion_raw: str) -> bool:
     fracciones = {f.strip() for f in fraccion_raw.replace(",", ";").split(";") if f.strip()}
     return fracciones == {"VI"}
 ```
-- [ ] **Paso 4:** `uv run pytest src/tests/test_sat_parsers.py -v` → pasa.
-- [ ] **Paso 5:** Descargar el XLSX real de `SAT_SOURCES["art_69"].url`, correr `parse_art_69` contra él manualmente (script ad-hoc, no commiteado) y ajustar `ART_69_COLUMNS` si los encabezados reales difieren — este es el momento de contacto real con el archivo, no se asume que el nombre de columna adivinado es exacto.
-- [ ] **Paso 6:** `git commit -m "feat: parser XLSX Art. 69 con captura de fracción"`
+- [x] **Paso 4:** `uv run pytest src/tests/test_sat_parsers.py -v` → pasa.
+- [x] **Paso 5:** BLOQUEADO externamente, documentado: la página del SAT (`art_69`) no expone un link estático de XLSX — el archivo se genera dinámicamente vía formulario (probado con `curl`/`WebFetch`, sin éxito). `ART_69_COLUMNS` queda con los valores asumidos del brief, sin confirmar. Ver Engram `discovery/sat-art-69-xlsx-no-tiene-url-de-descarga-estatica`.
+- [x] **Paso 6:** `git commit -m "feat: parser XLSX Art. 69 con captura de fracción"`
 
 ### Task 2.3: Parser XLSX Art. 69-B (con sub-estados EFOS)
 
