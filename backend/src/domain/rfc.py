@@ -8,15 +8,6 @@ _RFC_MORAL_REGEX = re.compile(r"^[A-ZÑ&]{3}(\d{2})(\d{2})(\d{2})[A-Z0-9]{3}$")
 # implementa la libreria de referencia python-stdnum (stdnum/mx/rfc.py).
 _ALFABETO_DIGITO_VERIFICADOR = "0123456789ABCDEFGHIJKLMN&OPQRSTUVWXYZ Ñ"
 
-# RFCs cuyo digito verificador no calza con el algoritmo de modulo 11 porque
-# no fueron generados a partir de un nombre+fecha real (p. ej. sandboxes
-# oficiales del SAT). La propia libreria de referencia (python-stdnum)
-# documenta que ~1.5% de los RFCs reales en uso tienen un digito verificador
-# que no calza con la formula, por lo que deshabilita esa validacion por
-# defecto. Aqui se mantiene el algoritmo real, pero se excluye explicitamente
-# este caso conocido para no romper el caso de prueba "limpio" del proyecto.
-_RFC_DIGITO_VERIFICADOR_EXCEPTUADOS = frozenset({"EKU9003173C9"})
-
 def normalize_rfc(raw: str) -> str:
     """Limpia un RFC crudo: quita espacios y guiones, y lo pasa a mayusculas.
 
@@ -45,9 +36,7 @@ def validar_estructura(rfc: str) -> bool:
     valida y digito verificador correcto (modulo 11).
 
     Devuelve True si el RFC es estructuralmente valido, False en caso
-    contrario. RFCs en `_RFC_DIGITO_VERIFICADOR_EXCEPTUADOS` (sandboxes
-    oficiales del SAT que no fueron generados por el algoritmo real) se
-    aceptan aunque su digito verificador no calce con la formula.
+    contrario.
     """
     rfc = normalize_rfc(rfc)
     if len(rfc) != 12:
@@ -73,6 +62,4 @@ def validar_estructura(rfc: str) -> bool:
             continue
     if not fecha_valida:
         return False
-    if rfc in _RFC_DIGITO_VERIFICADOR_EXCEPTUADOS:
-        return True
     return rfc[-1] == _calcular_digito_verificador(rfc[:-1])
