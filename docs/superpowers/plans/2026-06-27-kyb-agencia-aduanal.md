@@ -602,55 +602,14 @@ def es_unicamente_fraccion_vi(fraccion_raw: str) -> bool:
 **Interfaces:**
 - Produces: `parse_art_69b(xlsx_path: str) -> list[dict]` con claves `rfc`, `razon_social`, `art69b_substate` (∈ `presunto/desvirtuado/definitivo/sentencia_favorable`), `situacion`.
 
-- [ ] **Paso 1 — Test:**
-```python
-@pytest.fixture
-def art_69b_xlsx(tmp_path):
-    df = pd.DataFrame({
-        "RFC": ["ghi030303xx3"],
-        "Nombre del Contribuyente": ["Empresa Fantasma SA de CV"],
-        "Situación del Contribuyente": ["Definitivo"],
-    })
-    path = tmp_path / "art69b.xlsx"
-    df.to_excel(path, index=False)
-    return str(path)
+- [x] **Paso 1 — Test:** implementado tal cual el brief (commit `f84b9da`).
+- [x] **Paso 2:** falla (confirmado antes de implementar).
+- [x] **Paso 3 — Implementación:** implementado tal cual el brief inicialmente (commit `f84b9da`), luego corregido en dos rondas tras revisión de contexto fresco (ver nota abajo) — commits `32dc12e` y `de21d04`.
+- [x] **Paso 4:** pasa (18/18 tests del módulo SAT, suite completa del backend en verde).
+- [x] **Paso 5:** **BLOQUEADO externamente** — mismo motivo que Task 2.2: el SAT no publica una URL estática de descarga para el Art. 69-B; el archivo se genera vía formulario dinámico, no es fetcheable directo con curl/WebFetch. `ART_69B_COLUMNS` queda sin verificar contra un archivo real (riesgo documentado, heredado a Task 2.5/2.7).
+- [x] **Paso 6:** `git commit -m "feat: parser XLSX Art. 69-B con sub-estados EFOS"` (commit `f84b9da`).
 
-def test_parse_art_69b_mapea_substate_definitivo(art_69b_xlsx):
-    from infrastructure.sat.parsers import parse_art_69b
-    rows = parse_art_69b(art_69b_xlsx)
-    assert rows[0]["art69b_substate"] == "definitivo"
-```
-- [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación (agregar a `parsers.py`):**
-```python
-ART_69B_COLUMNS = {"rfc": "RFC", "razon_social": "Nombre del Contribuyente", "situacion": "Situación del Contribuyente"}
-
-_ART_69B_SUBSTATE_MAP = {
-    "presunto": "presunto", "presuntos": "presunto",
-    "desvirtuado": "desvirtuado",
-    "definitivo": "definitivo", "definitivos": "definitivo",
-    "sentencia favorable": "sentencia_favorable",
-}
-
-def parse_art_69b(xlsx_path: str) -> list[dict]:
-    df = pd.read_excel(xlsx_path)
-    rows = []
-    for _, row in df.iterrows():
-        rfc = normalize_rfc(str(row[ART_69B_COLUMNS["rfc"]]))
-        if not rfc:
-            continue
-        situacion_raw = str(row[ART_69B_COLUMNS["situacion"]]).strip().lower()
-        rows.append({
-            "rfc": rfc,
-            "razon_social": str(row[ART_69B_COLUMNS["razon_social"]]),
-            "art69b_substate": _ART_69B_SUBSTATE_MAP.get(situacion_raw),
-            "situacion": situacion_raw,
-        })
-    return rows
-```
-- [ ] **Paso 4:** pasa.
-- [ ] **Paso 5:** repetir la verificación contra el archivo real del Art. 69-B (mismo motivo que Task 2.2), confirmando además que el archivo real distingue los 4 sub-estados en una sola hoja o en hojas separadas — si están en hojas separadas, `parse_art_69b` necesita iterar `pd.ExcelFile(xlsx_path).sheet_names`, ajustar antes de pasar a Fase 3.
-- [ ] **Paso 6:** `git commit -m "feat: parser XLSX Art. 69-B con sub-estados EFOS"`
+> **Desvío del brief (post-revisión de contexto fresco):** el código verbatim del brief usaba `_ART_69B_SUBSTATE_MAP.get(situacion_raw)` sin default — un sub-estado no mapeado (acento, variante de capitalización fuera de alcance del `.lower()`, etc.) producía `art69b_substate=None` de forma silenciosa. Como este campo alimenta el bloqueo crítico `sat_69b_definitivo` (100 puntos, fuerza `high_risk`) en Fase 3, un `None` silencioso podía perder un bloqueo real sin ningún error visible (fail-open). Corregido a fail-closed: `raise ValueError` explícito ante cualquier situación no mapeada (commit `32dc12e`). Una revisión de contexto fresco posterior detectó que ese mismo `raise` rompía sobre filas vacías/de nota al pie del Excel (RFC/situación NaN) en lugar de descartarlas — corregido extendiendo el filtro de skip, más cobertura de test para las 4 variantes de sub-estado (commit `de21d04`). Decisión y verificación documentadas en Engram.
 
 ### Task 2.4: Ingesta transaccional a `sat_lista_registros`
 
