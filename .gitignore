@@ -3,7 +3,12 @@ node_modules/
 .pnp
 .pnp.js
 
+# CodeGraph — index local regenerable, no commitear
+.codegraph/
+
+# Borradores e items personales no trackear
 /email-draft.md
+docs/email-draft.md
 no-commitear/
 
 # shadcn MCP tooling artifacts en la raíz (el config real es .mcp.json; estos son
