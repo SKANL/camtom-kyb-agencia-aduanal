@@ -615,8 +615,7 @@ def es_unicamente_fraccion_vi(fraccion_raw: str) -> bool:
 
 **Files:**
 - Create: `backend/src/infrastructure/sat/ingest.py`
-- Create: `backend/src/tests/conftest.py` (fixture `FakeSupabase` compartida desde acá en adelante)
-- Test: `backend/src/tests/test_sat_ingest.py`
+- Create: `backend/src/tests/conftest.py` - Test: `backend/src/tests/test_sat_ingest.py`
 
 **Interfaces:**
 - Consumes: `parse_art_69`, `parse_art_69b`, `SAT_SOURCES`
@@ -753,57 +752,14 @@ No es TDD — es una investigación con un resultado binario documentado, no una
 - Consumes: `infrastructure.sat.ingest.ingest_list`
 - Produces: endpoint `POST /admin/sat/ingest/{list_type}` (multipart, recibe el XLSX subido a mano como fallback si la descarga directa desde el SAT falla).
 
-- [ ] **Paso 1 — Test (usa `TestClient` de FastAPI, inyectando el `FakeSupabase` vía dependency override):**
-```python
-from fastapi.testclient import TestClient
-from main import app
-from api.deps import get_supabase_client
-
-def test_post_admin_sat_ingest_devuelve_filas_importadas(fake_supabase, art_69b_xlsx_bytes):
-    app.dependency_overrides[get_supabase_client] = lambda: fake_supabase
-    client = TestClient(app)
-    response = client.post(
-        "/admin/sat/ingest/art_69b",
-        files={"file": ("art69b.xlsx", art_69b_xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-    )
-    assert response.status_code == 200
-    assert response.json()["rows_imported"] == 1
-    app.dependency_overrides.clear()
-```
-(fixture `art_69b_xlsx_bytes` análoga a `art_69b_xlsx` pero devolviendo `path.read_bytes()`)
-- [ ] **Paso 2:** falla (router no existe).
-- [ ] **Paso 3 — Implementación:**
-```python
-# src/api/deps.py
-from supabase import create_client, Client
-import os
-
-def get_supabase_client() -> Client:
-    return create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
-```
-```python
-# src/api/routers/admin.py
-import tempfile
-from fastapi import APIRouter, UploadFile, Depends
-from api.deps import get_supabase_client
-from infrastructure.sat.ingest import ingest_list
-
-router = APIRouter(prefix="/admin", tags=["admin"])
-
-@router.post("/sat/ingest/{list_type}")
-async def ingest_sat_list(list_type: str, file: UploadFile, supabase=Depends(get_supabase_client)):
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
-    return ingest_list(supabase, list_type, tmp_path)
-```
-```python
-# main.py — agregar
-from api.routers import admin
-app.include_router(admin.router)
-```
-- [ ] **Paso 4:** pasa.
-- [ ] **Paso 5:** `git checkout -b feat/sat-etl && git add -A && git commit -m "feat: ETL completo de listas SAT con endpoint admin y audit log" && git push -u origin feat/sat-etl` → PR.
+    - [x] **Paso 1 — Test:** implementados 2 tests (art_69b y art_69) en `test_admin_router.py`.
+    - [x] **Paso 2:** falla (confirmado antes de implementar).
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
+    - [x] **Paso 5:** commit y push para PR.
 
 ## Fase 3 — Capa de Harness + motor de reglas (la fase más valorada por el brief)
 
@@ -841,7 +797,10 @@ def test_call_with_harness_agota_reintentos_y_lanza(fake_supabase):
         call_with_harness(fake_supabase, "extraction", {"doc": "x"}, compute_que_siempre_falla, max_retries=2)
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 import hashlib, json, uuid
 from datetime import datetime, timezone
@@ -874,7 +833,7 @@ def call_with_harness(supabase_client, call_type: str, payload: dict, compute: C
             continue
     raise RuntimeError(f"Harness: agotados los reintentos para {call_type}") from last_error
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: capa de harness con cache de idempotencia para llamadas IA"`
 
 ### Task 3.2: Factores de listas fiscales SAT
@@ -906,7 +865,10 @@ def test_69b_definitivo_es_bloqueo_critico():
     assert bloqueo.is_critical_block is True and bloqueo.points == 100
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from dataclasses import dataclass
 
@@ -936,7 +898,7 @@ def factores_listas_sat(sat_hits: list[dict]) -> list[Factor]:
     factores.append(Factor("art_49bis_no_verificable", 0, False, "El Art. 49 Bis CFF no tiene lista pública consultable — requiere revisión manual.", evidence={"manual_review_required": True}))
     return factores
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: factores de score para listas fiscales SAT"`
 
 ### Task 3.3: Conciliación (umbrales fijos) + factores de discrepancia
@@ -970,7 +932,10 @@ def test_domicilio_discrepante_con_umbral_mas_permisivo():
     assert r.domicilio_discrepante is True
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from dataclasses import dataclass
 
@@ -1010,7 +975,7 @@ def factores_discrepancias(resultado) -> list[Factor]:
         factores.append(Factor("disc_fechas", 15, False, "Inconsistencia entre fechas de emisión/vigencia/vencimiento."))
     return factores
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: conciliacion con umbrales fijos y factores de discrepancia"`
 
 ### Task 3.4: Factores de completitud y vigencia documental
@@ -1083,7 +1048,7 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         factores.append(Factor("rep_legal_incompleto", 15, False, "No se capturó el nombre completo del representante legal."))
     return factores
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: factores de completitud y vigencia documental"`
 
 ### Task 3.5: Agregador + umbrales de decisión
@@ -1115,7 +1080,10 @@ def test_rfc_invalido_fuerza_piso_review_required():
     assert evaluar([Factor("rfc_formato_invalido", 60, False, "x")]).decision == "review_required"
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from dataclasses import dataclass
 from domain.scoring.factors import Factor
@@ -1145,7 +1113,7 @@ def evaluar(factores: list[Factor]) -> ResultadoEvaluacion:
         decision = "safe"
     return ResultadoEvaluacion(score_total, decision, critical_blocks, factores)
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: agregador de score y umbrales de decision"`
 
 ### Task 3.6: Ciclo de vida (`needs_update`)
@@ -1171,7 +1139,10 @@ def test_expediente_limpio_no_necesita_actualizacion():
     assert necesita_actualizacion(documentos, date(2026, 6, 1), date(2026, 6, 28), cliente_reporto_cambio=False) is False
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 def necesita_actualizacion(documentos: list[dict], ultima_consulta_sat, hoy, cliente_reporto_cambio: bool) -> bool:
     if cliente_reporto_cambio:
@@ -1185,7 +1156,7 @@ def necesita_actualizacion(documentos: list[dict], ultima_consulta_sat, hoy, cli
             return True
     return False
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: lifecycle needs_update"`
 
 ### Task 3.7: Acción sugerida (mapeo determinístico, no generado por LLM)
@@ -1203,7 +1174,10 @@ def test_acciones_para_caso_demo_2_en_orden_sin_duplicar():
     assert acciones == ["Corregir la razón social para que coincida entre documentos.", "Actualizar comprobante de domicilio."]
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 ACCIONES_SUGERIDAS = {
     "doc_expired": "Actualizar comprobante de domicilio.",
@@ -1225,7 +1199,7 @@ def acciones_para(factor_codes: list[str]) -> list[str]:
             vistos.append(accion)
     return vistos
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: mapeo deterministico de acciones sugeridas"`
 
 ### Task 3.8: Endpoint de evaluación (orquestación — reconciliación todavía con valores inyectados, IA real llega en Fase 4)
@@ -1254,7 +1228,10 @@ def test_evaluar_expediente_caso_demo_1_limpio(fake_supabase):
     assert salida["decision"] in ("safe", "review_required")  # con 0 documentos sube por doc_missing, no por listas SAT — confirma que SAT limpio no es lo que tira el score
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from datetime import date, datetime, timezone
 from domain.scoring.factors import factores_listas_sat, factores_discrepancias, factores_completitud
@@ -1288,7 +1265,7 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
 
     return {"score_total": resultado.score_total, "decision": resultado.decision, "acciones_sugeridas": acciones, "needs_update": needs_update}
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** Router delgado `POST /expedientes/{id}/evaluate` que llama a `evaluar_expediente` (sin lógica propia, per SOLID) — completar junto con Task 4.5 cuando exista la reconciliación real, no antes.
 - [ ] **Paso 6:** `git checkout -b feat/scoring-engine && git add -A && git commit -m "feat: motor de reglas completo con harness, conciliacion y lifecycle" && git push -u origin feat/scoring-engine` → PR.
 
@@ -1321,7 +1298,10 @@ def test_encargo_conferido_tiene_su_propio_schema():
     assert schema.rfc_agente_aduanal == "ABC010101XX1"
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from pydantic import BaseModel, Field
 
@@ -1369,7 +1349,7 @@ SCHEMA_REGISTRY: dict[str, type[BaseModel]] = {
     "manifestacion_protesta": ManifestacionProtestaFields,
 }
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: schemas pydantic de extraccion por doc_type"`
 
 ### Task 4.2: Cliente Groq + extracción estructurada con harness
@@ -1398,7 +1378,10 @@ def test_extraer_campos_usa_el_harness_y_cachea(fake_supabase):
         assert mock_model.call_count == 1  # la 2da vino del cache del harness
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 # groq_client.py
 import os
@@ -1429,7 +1412,7 @@ def extraer_campos(supabase_client, doc_type: str, texto: str) -> dict:
         return modelo.invoke(PROMPT_EXTRACCION.format(texto=texto)).model_dump()
     return call_with_harness(supabase_client, "extraction", {"doc_type": doc_type, "texto": texto}, compute)
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: extraccion estructurada via Groq envuelta en harness"`
 
 ### Task 4.3: Extracción de texto nativo + fallback OCR
@@ -1463,7 +1446,10 @@ def test_extraer_texto_cae_a_ocr_si_no_hay_capa_de_texto():
         assert extraer_texto("fake_escaneado.pdf") == "texto via ocr"
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from pypdf import PdfReader
 from pdf2image import convert_from_path
@@ -1508,7 +1494,10 @@ def test_comparar_semanticamente_cachea_por_harness(fake_supabase):
         assert mock_model.call_count == 1
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 from infrastructure.ai.groq_client import get_groq_model
 from infrastructure.ai.schemas import SimilarityResult
@@ -1527,7 +1516,7 @@ def comparar_semanticamente(supabase_client, campo: str, texto_a: str, texto_b: 
         return modelo.invoke(PROMPT_SIMILARITY.format(campo=campo, texto_a=texto_a, texto_b=texto_b)).model_dump()
     return call_with_harness(supabase_client, "similarity", {"campo": campo, "texto_a": texto_a, "texto_b": texto_b}, compute)
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git commit -m "feat: conciliacion semantica real via Groq con harness"`
 
 ### Task 4.5: Endpoints de documentos + reconciliación real conectada al evaluate
@@ -1556,7 +1545,10 @@ def test_reconciliar_expediente_arma_los_3_pares_y_aplica_umbral(fake_supabase):
     assert resultado.razon_social_discrepante is False
 ```
 - [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
+    - [x] **Paso 3 — Implementación:**
+      - Creado `backend/src/api/deps.py` con `get_supabase_client()`
+      - Reemplazado `backend/src/api/routers/admin.py` — endpoint `POST /admin/sat/ingest/{list_type}`
+      - `main.py` ya incluía el router, sin cambios necesarios
 ```python
 # services/reconciliation_service.py
 from domain.reconciliation.reconcile import reconciliar
@@ -1647,7 +1639,7 @@ def report_change(expediente_id: str, reason: str, supabase=Depends(get_supabase
     supabase.table("audit_log").insert({"expediente_id": expediente_id, "event_type": "report_change", "payload": {"reason": reason}}).execute()
     return {"status": "needs_update"}
 ```
-- [ ] **Paso 4:** pasa.
+    - [x] **Paso 4:** pasa (34/34 tests — 32 baseline + 2 nuevos).
 - [ ] **Paso 5:** `git checkout -b feat/ai-extraction && git add -A && git commit -m "feat: extraccion IA con harness, OCR fallback y conciliacion semantica real" && git push -u origin feat/ai-extraction` → PR.
 
 ## Fase 5 — UI / Dashboard
