@@ -103,6 +103,117 @@ flowchart LR
 
 ---
 
+## The supporting ecosystem: MCP servers, agents, skills, and utilities
+
+Beyond the core meta-tools, the project relied on a broader ecosystem of **MCP servers** (tooling the AI can invoke directly), **specialized agents** (sub-agents with single responsibilities), **skills** (reusable instructions and workflows), and **external utilities** for research and design.
+
+### MCP servers (Model Context Protocol)
+
+Every MCP server listed here is configured in `opencode.json` or `.mcp.json` and was callable by the orchestrator and sub-agents during development — no browser or copy-paste needed.
+
+| Server | Type | Used for | Used when |
+|---|---|---|---|
+| **Codegraph** | Local (SQLite) | Symbol index, call graph, blast radius; replaces 4–10 file reads per task | Every edit and structural question across all 6 phases |
+| **Engram** | Local (`engram mcp`) | Persistent memory: 63 observations saved, cross-session recovery, conflict detection | Session start, after every decision/bugfix, session end |
+| **Context7** | Remote (context7.com) | Up-to-date documentation for every library: FastAPI, LangChain, shadcn, Supabase, Next.js, uv | Before every `uv add` or API call — never assumed a library signature from training data |
+| **Pencil** | Local (.pen editor) | Read and modify design files (.pen) for the Clickhouse UI theme | Fase 5 (dashboard theme design) |
+| **shadcn** | Remote (npx shadcn@latest mcp) | Add/search shadcn/ui components by name with preset support (e.g. `shadcn add button -b base`) | Fase 5 (every UI component: 9 pages, 20+ components) |
+
+### Sub-agents (Gentle AI agent registry)
+
+All defined in `opencode.json` under `agent.*`, each with a single responsibility, its own system prompt, and restricted tool access.
+
+```mermaid
+flowchart LR
+    subgraph Orchestrator
+        O[gentle-orchestrator<br/>Primary agent]
+    end
+
+    subgraph SDD["SDD Executors"]
+        I[sdd-init]
+        E[sdd-explore]
+        P[sdd-propose]
+        S[sdd-spec]
+        D[sdd-design]
+        T[sdd-tasks]
+        A[sdd-apply]
+        V[sdd-verify]
+        ARC[sdd-archive]
+    end
+
+    subgraph Review["Review Agents"]
+        R1[review-risk]
+        R2[review-readability]
+        R3[review-reliability]
+        R4[review-resilience]
+    end
+
+    subgraph JD["Judgment Day"]
+        JA[jd-judge-a]
+        JB[jd-judge-b]
+        JF[jd-fix-agent]
+    end
+
+    O --> SDD
+    O --> Review
+    O --> JD
+```
+
+| Agent | Tool access | Used for |
+|---|---|---|
+| **gentle-orchestrator** | bash, edit, question, read, task, write | Coordinates all phases, delegates work, validates gates — never writes code itself |
+| **sdd-init** | bash, edit, read, write | Bootstrap SDD context: detect testing capabilities, cache conventions |
+| **sdd-explore** | bash, edit, read, write | Codebase mapping, approach comparison |
+| **sdd-propose** | bash, edit, read, write | Write change proposals with intent, scope, and approach |
+| **sdd-spec** | bash, edit, read, write | Write delta specs with requirements and scenarios |
+| **sdd-design** | bash, edit, read, write | Write technical design documents |
+| **sdd-tasks** | bash, edit, read, write | Break designs into granular, TDD-ready tasks |
+| **sdd-apply** | bash, edit, read, write | **The workhorse** — implements code for one task at a time, with test-first TDD |
+| **sdd-verify** | bash, edit, read, write | Validates implementation against spec, runs tests, reports coverage |
+| **sdd-archive** | bash, edit, read, write | Closes a change, persists final state |
+| **review-risk (R1)** | bash, read | Security audit: secrets, injection, OWASP, privilege boundaries |
+| **review-readability (R2)** | bash, read | Code clarity: naming, complexity, magic numbers, dead code |
+| **review-reliability (R3)** | bash, read | Test quality: behavior-first, edge cases, determinism, coverage |
+| **review-resilience (R4)** | bash, read | Operations: fallbacks, retry, observability, rollback readiness |
+| **jd-judge-a / jd-judge-b** | bash, read | Blind dual adversarial review for high-stakes phases (design, apply) |
+| **jd-fix-agent** | bash, edit, read, write | Surgical fix of confirmed issues from judgment-day reviews |
+
+### Skills — reusable instruction sets
+
+Skills are `SKILL.md` files loaded by the orchestrator or sub-agents before work. They encode conventions, workflows, and domain knowledge that the agent reads as context — no need to re-explain patterns.
+
+**User-level skills** (installed at `~/.config/opencode/skills/`):
+
+| Skill | What it encodes | Used when |
+|---|---|---|
+| **branch-pr** | Issue-first PR workflow: verify issue exists, create branch, commit, PR with template | Every phase close (PR creation) |
+| **chained-pr** | Split oversized changes into stacked PRs to protect review focus | Review workload guard after sdd-tasks |
+| **work-unit-commits** | Plan commits as reviewable work units: tests + code + docs together | Every sdd-apply task |
+| **cognitive-doc-design** | Design docs that reduce cognitive load: intent, structure, examples | Writing README, CLAUDE.md |
+| **judgment-day** | Blind dual adversarial review + fix + re-judge protocol | Fase 3 design and apply phases |
+| **comment-writer** | Warm, direct collaboration comments for PR reviews | PR feedback and review comments |
+| **skill-registry** | Index available skills by trigger and path | Session init (refresh registry) |
+| **sdd-{phase}** (9 skills) | Full phase contract: inputs, outputs, validation, TDD rules | Each SDD phase delegation |
+
+**Project-level skills** (installed at `.agents/skills/`):
+
+| Skill | What it encodes | Used when |
+|---|---|---|
+| **shadcn** | Complete shadcn/ui workflow: init, add components, preset codes, styling via CSS variables, CLI patterns | Fase 5 (all UI components) |
+| **vercel-composition-patterns** | React composition patterns: compound components, render props, context providers, React 19 API changes | Fase 5 (component architecture) |
+| **vercel-react-best-practices** | React/Next.js optimization: bundle splitting, rerender prevention, server/client boundaries, data fetching | Fase 5 (performance patterns) |
+
+### External utilities
+
+| Tool | Used for | Used when |
+|---|---|---|
+| **Gemini 2.5 Pro (Deep Research)** | Domain investigation: SAT lists, RGCE 2026, scoring algorithms, competitive analysis | Pre-development (1 prompt, ~30 pages) |
+| **OpenCode** | Gentle AI runtime — runs the orchestrator agent, manages sub-agent lifecycle, MCP connections | Entire project |
+| **Claude Code** | AI model for all SDD phases: planning, implementation, review, archival | Entire project |
+| **Groq (via langchain-groq)** | LLM inference for document text extraction and semantic reconciliation | Fase 4 (within the AI Harness) |
+
+---
+
 ## SDD workflow in action: the 6 phases
 
 ```mermaid
