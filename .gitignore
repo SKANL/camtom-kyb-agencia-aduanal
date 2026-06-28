@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+/email-draft.md
+no-commitear/
+
 # shadcn MCP tooling artifacts en la raíz (el config real es .mcp.json; estos son
 # regenerables vía `npx shadcn@latest mcp`). Solo la raíz — el frontend/ tiene el suyo.
 /package.json

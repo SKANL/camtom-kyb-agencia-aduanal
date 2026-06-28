@@ -108,47 +108,48 @@ flowchart LR
 ```mermaid
 gantt
     title KYB Implementation Timeline (48h)
-    dateFormat  HH:mm
-    axisFormat %H:%M
+    dateFormat  YYYY-MM-DD HH:mm
+    axisFormat  %m/%d %H:%M
+    tickInterval 12hour
 
-    section Phase 1 - Scaffolding
-    Backend (FastAPI+uv)     :p1a, 0h, 4h
-    Frontend (Next.js+shadcn) :p1b, 0h, 4h
-    Supabase schema + GitHub  :p1c, 2h, 6h
-    Deploy to Vercel          :p1d, 4h, 8h
+    section Phase 1 - Scaffolding (8h)
+    Backend (FastAPI+uv)        :p1a, 2026-06-26 20:00, 2026-06-27 00:00
+    Frontend (Next.js+shadcn)   :p1b, 2026-06-26 20:00, 2026-06-27 00:00
+    Supabase schema + GitHub    :p1c, 2026-06-26 22:00, 2026-06-27 02:00
+    Deploy to Vercel            :p1d, 2026-06-27 00:00, 2026-06-27 04:00
 
-    section Phase 2 - SAT ETL
-    RFC validator             :p2a, 8h, 10h
-    Art. 69 parser            :p2b, 10h, 12h
-    Art. 69-B parser          :p2c, 11h, 13h
-    Lookup + Audit log        :p2d, 12h, 15h
-    Ingest pipeline           :p2e, 14h, 17h
+    section Phase 2 - SAT ETL (9h)
+    RFC validator               :p2a, 2026-06-27 01:00, 2026-06-27 03:00
+    Art. 69 parser              :p2b, 2026-06-27 03:00, 2026-06-27 05:00
+    Art. 69-B parser            :p2c, 2026-06-27 04:00, 2026-06-27 06:00
+    Lookup + Audit log          :p2d, 2026-06-27 05:00, 2026-06-27 08:00
+    Ingest pipeline             :p2e, 2026-06-27 07:00, 2026-06-27 10:00
 
-    section Phase 3 - Scoring Engine
-    AI Harness (cache)        :p3a, 17h, 19h
-    SAT factors               :p3b, 19h, 20h
-    Discrepancy factors       :p3c, 20h, 21h
-    Completeness factors      :p3d, 21h, 22h
-    Score aggregator          :p3e, 22h, 23h
-    Lifecycle + Actions       :p3f, 23h, 25h
-    Evaluation service        :p3g, 24h, 27h
+    section Phase 3 - Scoring Engine (10h)
+    AI Harness (cache)          :p3a, 2026-06-27 10:00, 2026-06-27 12:00
+    SAT factors                 :p3b, 2026-06-27 12:00, 2026-06-27 13:00
+    Discrepancy factors         :p3c, 2026-06-27 13:00, 2026-06-27 14:00
+    Completeness factors        :p3d, 2026-06-27 14:00, 2026-06-27 15:00
+    Score aggregator            :p3e, 2026-06-27 15:00, 2026-06-27 16:00
+    Lifecycle + Actions         :p3f, 2026-06-27 16:00, 2026-06-27 18:00
+    Evaluation service          :p3g, 2026-06-27 17:00, 2026-06-27 20:00
 
-    section Phase 4 - AI Extraction
-    Extraction schemas        :p4a, 27h, 29h
-    Groq extraction harness   :p4b, 29h, 31h
-    OCR fallback              :p4c, 30h, 32h
-    Semantic reconciliation   :p4d, 32h, 34h
-    Router integration        :p4e, 34h, 37h
+    section Phase 4 - AI Extraction (6h)
+    Extraction schemas          :p4a, 2026-06-27 20:00, 2026-06-27 22:00
+    Groq extraction harness     :p4b, 2026-06-27 22:00, 2026-06-28 00:00
+    OCR fallback                :p4c, 2026-06-27 23:00, 2026-06-28 01:00
+    Semantic reconciliation     :p4d, 2026-06-28 01:00, 2026-06-28 03:00
+    Router integration          :p4e, 2026-06-28 03:00, 2026-06-28 06:00
 
-    section Phase 5 - Dashboard UI
-    Clickhouse theme          :p5a, 37h, 39h
-    9 UI pages                :p5b, 39h, 45h
-    Backend CRUD endpoints    :p5c, 38h, 44h
+    section Phase 5 - Dashboard UI (11h)
+    Clickhouse theme            :p5a, 2026-06-28 02:00, 2026-06-28 04:00
+    9 UI pages                  :p5b, 2026-06-28 04:00, 2026-06-28 11:00
+    Backend CRUD endpoints      :p5c, 2026-06-28 03:00, 2026-06-28 10:00
 
-    section Phase 6 - Demo Data
-    Synthetic PDFs            :p6a, 45h, 46h
-    3 expedientes             :p6b, 46h, 47h
-    README + submission       :p6c, 47h, 48h
+    section Phase 6 - Demo Data (4h)
+    Synthetic PDFs              :p6a, 2026-06-28 12:00, 2026-06-28 13:30
+    3 expedientes               :p6b, 2026-06-28 13:00, 2026-06-28 14:30
+    README + submission         :p6c, 2026-06-28 14:30, 2026-06-28 16:45
 ```
 
 Each phase followed the same SDD pipeline: a dedicated `sdd-apply` sub-agent received the task brief (from `sdd-tasks`), implemented code and tests, then an `sdd-verify` sub-agent validated against the spec. A fresh-context reviewer (R1–R4 agents) reviewed the PR before merge. Every CRITICAL finding was fixed before the PR reached `main`.
