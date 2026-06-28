@@ -102,3 +102,41 @@ def test_crear_documento_doc_type_invalido_retorna_422(client, fake_supabase):
     )
     assert response.status_code == 422
     assert "doc_type inválido" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# GET /documentos?expediente_id=...
+# ---------------------------------------------------------------------------
+
+def test_list_documentos_returns_200_with_list(client, fake_supabase):
+    fake_supabase.store["documentos"] = [
+        {"id": "doc-1", "expediente_id": "exp-1", "doc_type": "csf", "entry_method": "manual"},
+        {"id": "doc-2", "expediente_id": "exp-1", "doc_type": "acta_constitutiva", "entry_method": "manual"},
+    ]
+    response = client.get("/documentos?expediente_id=exp-1")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+
+
+def test_list_documentos_filters_by_expediente_id(client, fake_supabase):
+    fake_supabase.store["documentos"] = [
+        {"id": "doc-1", "expediente_id": "exp-1", "doc_type": "csf", "entry_method": "manual"},
+        {"id": "doc-2", "expediente_id": "exp-2", "doc_type": "acta_constitutiva", "entry_method": "uploaded"},
+    ]
+    response = client.get("/documentos?expediente_id=exp-1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == "doc-1"
+    assert data[0]["expediente_id"] == "exp-1"
+
+
+def test_list_documentos_returns_empty_list_when_no_match(client, fake_supabase):
+    fake_supabase.store["documentos"] = [
+        {"id": "doc-1", "expediente_id": "exp-other", "doc_type": "csf", "entry_method": "manual"},
+    ]
+    response = client.get("/documentos?expediente_id=exp-1")
+    assert response.status_code == 200
+    assert response.json() == []
