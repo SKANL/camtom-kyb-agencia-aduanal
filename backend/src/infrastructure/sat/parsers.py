@@ -32,7 +32,7 @@ def parse_art_69(xlsx_path: str) -> list[dict]:
 
 
 def es_unicamente_fraccion_vi(fraccion_raw: str) -> bool:
-    fracciones = {f.strip() for f in fraccion_raw.replace(",", ";").split(";") if f.strip()}
+    fracciones = {f.strip().upper() for f in fraccion_raw.replace(",", ";").split(";") if f.strip()}
     return fracciones == {"VI"}
 
 

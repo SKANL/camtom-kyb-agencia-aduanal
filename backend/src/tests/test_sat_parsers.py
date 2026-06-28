@@ -42,6 +42,10 @@ def test_es_unicamente_fraccion_vi_true():
     assert es_unicamente_fraccion_vi("VI") is True
 
 
+def test_es_unicamente_fraccion_vi_true_con_minusculas():
+    assert es_unicamente_fraccion_vi("vi") is True
+
+
 def test_es_unicamente_fraccion_vi_false_con_otra_fraccion():
     assert es_unicamente_fraccion_vi("I; VI") is False
 
