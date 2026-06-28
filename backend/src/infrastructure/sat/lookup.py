@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from domain.rfc import normalize_rfc, validar_estructura
-from infrastructure.sat.parsers import es_unicamente_fraccion_vi
-from infrastructure.sat.sources import SAT_SOURCES
+from src.domain.rfc import normalize_rfc, validar_estructura
+from src.infrastructure.sat.parsers import es_unicamente_fraccion_vi
+from src.infrastructure.sat.sources import SAT_SOURCES
 
 # Listas registradas en SAT_SOURCES que todavia no tienen parser de ingesta
 # (ver infrastructure.sat.ingest._PARSERS). Se excluyen explicitamente aqui

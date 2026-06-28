@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from infrastructure.sat.ingest import ingest_list
+from src.infrastructure.sat.ingest import ingest_list
 
 
 @pytest.fixture

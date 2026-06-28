@@ -1,5 +1,5 @@
 import pandas as pd
-from domain.rfc import normalize_rfc
+from src.domain.rfc import normalize_rfc
 
 # Encabezados a confirmar contra el archivo real descargado (paso de
 # verificación de esta misma tarea) — el SAT no publica diccionario de

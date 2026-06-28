@@ -1,4 +1,4 @@
-from domain.rfc import normalize_rfc, validar_estructura
+from src.domain.rfc import normalize_rfc, validar_estructura
 
 def test_normalize_rfc_strips_and_uppercases():
     assert normalize_rfc(" eku900317-3c9 ") == "EKU9003173C9"

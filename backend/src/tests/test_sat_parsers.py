@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from infrastructure.sat.parsers import parse_art_69, es_unicamente_fraccion_vi, parse_art_69b
+from src.infrastructure.sat.parsers import parse_art_69, es_unicamente_fraccion_vi, parse_art_69b
 
 
 @pytest.fixture

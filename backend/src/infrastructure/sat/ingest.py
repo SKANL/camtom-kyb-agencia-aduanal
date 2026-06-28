@@ -2,8 +2,8 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 
-from infrastructure.sat.parsers import parse_art_69, parse_art_69b
-from infrastructure.sat.sources import SAT_SOURCES
+from src.infrastructure.sat.parsers import parse_art_69, parse_art_69b
+from src.infrastructure.sat.sources import SAT_SOURCES
 
 _PARSERS = {"art_69": parse_art_69, "art_69b": parse_art_69b}
 

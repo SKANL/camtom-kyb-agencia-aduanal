@@ -1,13 +1,3 @@
-from pathlib import Path
-import sys
-
-# pytest adds backend/src/ to sys.path[0], but the src.* imports in main.py
-# and admin.py need backend/ in the path for the namespace package resolution.
-# This is the same resolution that happens in Vercel (root = backend/).
-_backend_root = str(Path(__file__).resolve().parent.parent.parent)
-if _backend_root not in sys.path:
-    sys.path.insert(0, _backend_root)
-
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient

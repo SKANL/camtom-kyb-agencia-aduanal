@@ -1,4 +1,4 @@
-from infrastructure.sat.lookup import consultar_rfc_en_listas
+from src.infrastructure.sat.lookup import consultar_rfc_en_listas
 
 
 def test_rfc_invalido_no_consulta_nada(fake_supabase):
