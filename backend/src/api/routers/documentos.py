@@ -55,6 +55,9 @@ def extract_documento(documento_id: str, supabase=Depends(get_supabase_client)):
 
 @router.patch("/{documento_id}")
 def revisar_documento(documento_id: str, fields: dict, supabase=Depends(get_supabase_client)):
+    result = supabase.table("documentos").select("id").eq("id", documento_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
     supabase.table("documentos").update(
         {"fields": fields, "extraction_status": "human_reviewed"}
     ).eq("id", documento_id).execute()

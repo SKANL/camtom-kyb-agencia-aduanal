@@ -23,7 +23,7 @@ def reconciliar_expediente(supabase_client, expediente_id: str):
 
     rfcs = [expediente["rfc"]] + [
         (documentos[dt].get("fields") or {}).get("rfc", expediente["rfc"])
-        for dt in ("csf", "acta_constitutiva", "rfc")
+        for dt in ("csf", "acta_constitutiva")
         if dt in documentos
     ]
 
@@ -34,24 +34,20 @@ def reconciliar_expediente(supabase_client, expediente_id: str):
         supabase_client, "razón social", expediente["razon_social"], razon_social_csf
     )
 
-    domicilio_comprobante = (
-        documentos.get("comprobante_domicilio", {}).get("fields") or {}
-    ).get("domicilio", expediente.get("domicilio_fiscal") or "")
-    sim_domicilio = comparar_semanticamente(
-        supabase_client,
-        "domicilio",
-        expediente.get("domicilio_fiscal") or "",
-        domicilio_comprobante,
+    domicilio_a = expediente.get("domicilio_fiscal") or ""
+    domicilio_b = (documentos.get("comprobante_domicilio", {}).get("fields") or {}).get("domicilio", domicilio_a)
+    sim_domicilio = (
+        comparar_semanticamente(supabase_client, "domicilio", domicilio_a, domicilio_b)
+        if (domicilio_a or domicilio_b)
+        else {"similarity": 1.0, "same_entity": True, "reasoning": "Sin datos de domicilio para comparar"}
     )
 
-    rep_poder = (documentos.get("poder_notarial", {}).get("fields") or {}).get(
-        "nombre_representante", expediente.get("representante_legal") or ""
-    )
-    sim_representante = comparar_semanticamente(
-        supabase_client,
-        "nombre de representante legal",
-        expediente.get("representante_legal") or "",
-        rep_poder,
+    rep_a = expediente.get("representante_legal") or ""
+    rep_b = (documentos.get("poder_notarial", {}).get("fields") or {}).get("nombre_representante", rep_a)
+    sim_representante = (
+        comparar_semanticamente(supabase_client, "nombre de representante legal", rep_a, rep_b)
+        if (rep_a or rep_b)
+        else {"similarity": 1.0, "same_entity": True, "reasoning": "Sin datos de representante para comparar"}
     )
 
     return reconciliar(rfcs, sim_razon_social, sim_domicilio, sim_representante, fechas_validas=True)
