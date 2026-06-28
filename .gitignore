@@ -8,6 +8,13 @@ node_modules/
 /package.json
 /package-lock.json
 
+# Cachés/registro de skills de Claude Code (Agent Teams Lite / superpowers) — locales
+# a la herramienta, regenerables, no son contenido del proyecto KYB.
+/.agents/
+/.atl/
+/.claude/
+/skills-lock.json
+
 # Python / uv
 __pycache__/
 *.py[cod]
