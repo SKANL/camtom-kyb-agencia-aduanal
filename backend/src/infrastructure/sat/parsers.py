@@ -41,9 +41,9 @@ def parse_art_69b(xlsx_path: str) -> list[dict]:
     rows = []
     for _, row in df.iterrows():
         rfc = normalize_rfc(str(row[ART_69B_COLUMNS["rfc"]]))
-        if not rfc:
-            continue
         situacion_raw = str(row[ART_69B_COLUMNS["situacion"]]).strip().lower()
+        if rfc in ("", "NAN") or situacion_raw in ("", "nan"):
+            continue
         if situacion_raw not in _ART_69B_SUBSTATE_MAP:
             raise ValueError(
                 f"situacion no mapeada en Art. 69-B: {situacion_raw!r} (RFC {rfc}). "

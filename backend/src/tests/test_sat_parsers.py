@@ -60,3 +60,41 @@ def art_69b_xlsx_situacion_no_mapeada(tmp_path):
 def test_parse_art_69b_rechaza_situacion_no_mapeada(art_69b_xlsx_situacion_no_mapeada):
     with pytest.raises(ValueError, match="situacion no mapeada"):
         parse_art_69b(art_69b_xlsx_situacion_no_mapeada)
+
+
+@pytest.fixture
+def art_69b_xlsx_con_fila_vacia(tmp_path):
+    df = pd.DataFrame({
+        "RFC": ["mno050505xx5", float("nan")],
+        "Nombre del Contribuyente": ["Empresa Real SA de CV", "Total: 1 registro"],
+        "Situación del Contribuyente": ["Presunto", float("nan")],
+    })
+    path = tmp_path / "art69b_con_fila_vacia.xlsx"
+    df.to_excel(path, index=False)
+    return str(path)
+
+
+def test_parse_art_69b_descarta_fila_vacia_sin_lanzar_error(art_69b_xlsx_con_fila_vacia):
+    rows = parse_art_69b(art_69b_xlsx_con_fila_vacia)
+    assert len(rows) == 1
+    assert rows[0]["rfc"] == "MNO050505XX5"
+
+
+@pytest.mark.parametrize("situacion_cruda,substate_esperado", [
+    ("Presunto", "presunto"),
+    ("Presuntos", "presunto"),
+    ("Desvirtuado", "desvirtuado"),
+    ("Definitivo", "definitivo"),
+    ("Definitivos", "definitivo"),
+    ("Sentencia favorable", "sentencia_favorable"),
+])
+def test_parse_art_69b_mapea_todas_las_variantes_de_substate(tmp_path, situacion_cruda, substate_esperado):
+    df = pd.DataFrame({
+        "RFC": ["pqr060606xx6"],
+        "Nombre del Contribuyente": ["Empresa de Prueba SA de CV"],
+        "Situación del Contribuyente": [situacion_cruda],
+    })
+    path = tmp_path / "art69b_variante.xlsx"
+    df.to_excel(path, index=False)
+    rows = parse_art_69b(str(path))
+    assert rows[0]["art69b_substate"] == substate_esperado
