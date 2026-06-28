@@ -43,6 +43,46 @@ Cada proyecto tiene su propio `.env.example` (contenido exacto definido en el pl
 - Backend: `cd backend && uv run pytest src/tests/ -v` · `uv run fastapi dev src/main.py`
 - Frontend: `cd frontend && pnpm dev` · `pnpm build`
 
+## CodeGraph — ahorro de tokens y contexto quirúrgico
+
+CodeGraph indexa todos los símbolos del monorepo (Python + TypeScript) en SQLite
+y permite consultarlos con una sola llamada en vez de leer archivos enteros.
+
+**Regla de oro: antes de leer, consultá CodeGraph.** No abras archivos a ciegas.
+
+### Cómo usar
+
+- **Preguntá en lenguaje natural:** `codegraph_explore("flujo de evaluacion backend")`,
+  `codegraph_explore("consultar_rfc_en_listas")`, `codegraph_explore("ingest_list")`
+- **Nombrá símbolos o archivos:** `codegraph_explore("validar_estructura lookup.py")`
+- **Para cambios, pedí el blast radius primero:** CodeGraph muestra qué funciones
+  llaman a qué y qué tests cubren cada símbolo antes de editar.
+
+### Lo que ahorra tokens (y qué NO hacer)
+
+| En vez de esto (derrocha) | Hacé esto (ahorra) |
+|---|---|
+| Leer 4 archivos para entender un flujo | Un `codegraph_explore` con los nombres de los símbolos |
+| Leer un archivo entero de 200 líneas para encontrar una función | `codegraph_explore("nombre_de_la_funcion")` — trae solo esa función y su contexto |
+| Leer archivo por archivo para ver impacto de un cambio | `codegraph_explore("simbolo")` y leé el **blast radius** |
+| Usar `grep` + múltiples `Read` para rastrear dependencias | CodeGraph ya indexó edges entre símbolos |
+| Re-leer un archivo que CodeGraph ya devolvió en el mismo turno | CodeGraph devuelve source **verbatim** — ya lo leíste, no lo vuelvas a abrir |
+
+### Por qué esto importa acá
+
+Este repo tiene ~35 archivos entre `backend/` (Python) y `frontend/` (TypeScript).
+Sin CodeGraph, cada tarea implica leer 4-10 archivos para entender contexto.
+Con CodeGraph, una sola consulta reemplaza toda esa lectura. Es la diferencia
+entre gastar 10-15K tokens en reads por tarea vs 2-3K.
+
+### Importante
+
+- CodeGraph está disponible como MCP tool (`codegraph_explore`).
+- Usalo SIEMPRE antes de `Read`, `Grep` o `Glob` para entender código.
+- CodeGraph ya devolvió el source de un archivo → tratalo como si ya lo
+  hubieras leído. No lo abras de nuevo con `Read`.
+- Si la consulta no encuentra lo que buscás, recién ahí caé a `Grep`/`Read`.
+
 ## Contexto persistente
 
 Hay memoria guardada en Engram (proyecto `camtom-prueba-tecnica`) con todas las decisiones, correcciones y descubrimientos de la sesión de planificación completa — llamar `mem_context`/`mem_search` al iniciar para recuperarlo. No asumas nada sobre el "por qué" de una decisión que no esté en este archivo o en el plan; si no está documentado, está en esa memoria.
