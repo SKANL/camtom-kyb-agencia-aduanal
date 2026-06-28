@@ -259,7 +259,7 @@ Si el tiempo aprieta, la fase recortable es la 5 (UI funcional pero austera) —
 
 ## Riesgos documentados
 
-- `pytesseract` puede no tener el binario de Tesseract disponible en el runtime serverless de Python de Vercel → spike obligatorio en fase 2, fallback ya definido (exigir PDF con texto para la demo).
+- **`pytesseract` NO tiene el binario de Tesseract en Vercel serverless (Spike confirmado 2026-06-28).** Deploy de prueba con endpoint `POST /admin/ocr-spike` → `TesseractNotFoundError` en runtime. La librería Python se instala, pero falla al ejecutar porque el binario `tesseract` no existe en la imagen base de AWS Lambda de Vercel. **Reemplazo:** usar `PyMuPDF` (fitz) para extraer texto de PDFs con capa de texto directamente (sin OCR). Para PDFs escaneados (imagen), documentar como limitación conocida. Esto elimina la dependencia de `pytesseract` en Vercel y simplifica la Fase 4.
 - Estabilidad del `similarity` del LLM entre llamadas → mitigado estructuralmente por la capa de Harness (cache por hash), no es un riesgo residual.
 - Tamaño de archivos XLSX del SAT vs límites de las funciones serverless de Vercel → validar en fase 2; si excede, descargar a Storage primero y procesar aparte.
 - Latencia/CORS entre dos servicios Vercel separados → configurar CORS explícito en FastAPI desde el primer deploy (fase 1), no al final.
@@ -683,7 +683,7 @@ def ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict:
 - Consumes: `domain.rfc.validar_estructura`, `infrastructure.sat.parsers.es_unicamente_fraccion_vi`, `SAT_SOURCES`
 - Produces: `consultar_rfc_en_listas(supabase_client, expediente_id: str, rfc: str) -> list[dict]` — cada item `{"list_type": str, "match_substate": str|None}` para los hits que SÍ deben generar factor de riesgo (ya filtrados por la excepción de fracción VI). Si el RFC es inválido devuelve `[{"factor_code": "rfc_formato_invalido", "rfc": rfc}]` sin tocar la red ni la tabla local. **Consumido directamente por Task 3.2 (factores de listas SAT).**
 
-- [ ] **Paso 1 — Test:**
+- [x] **Paso 1 — Test:**
 ```python
 from infrastructure.sat.lookup import consultar_rfc_en_listas
 
@@ -703,64 +703,44 @@ def test_rfc_en_69b_definitivo_genera_hit(fake_supabase):
     ]
     resultado = consultar_rfc_en_listas(fake_supabase, "exp-1", "GHI030303XX3")
     assert {"list_type": "art_69b", "match_substate": "definitivo"} in resultado
+
+def test_import_run_id_queda_seteado_con_run_success_previo(fake_supabase):
+    fake_supabase.store["sat_import_runs"] = [
+        {"id": "run-1", "list_type": "art_69", "status": "success", "started_at": "2026-06-27T00:00:00Z"}
+    ]
+    fake_supabase.store["sat_lista_registros"] = [
+        {"list_type": "art_69", "rfc": "EKU9003173C9", "situacion": "I"}
+    ]
+    resultado = consultar_rfc_en_listas(fake_supabase, "exp-1", "EKU9003173C9")
+    consulta = fake_supabase.store["consultas_sat"][0]
+    assert consulta["import_run_id"] == "run-1"
+
+def test_import_run_id_queda_none_si_no_hay_run_success(fake_supabase):
+    fake_supabase.store["sat_import_runs"] = []
+    fake_supabase.store["sat_lista_registros"] = [
+        {"list_type": "art_69", "rfc": "EKU9003173C9", "situacion": "I"}
+    ]
+    resultado = consultar_rfc_en_listas(fake_supabase, "exp-1", "EKU9003173C9")
+    consulta = fake_supabase.store["consultas_sat"][0]
+    assert consulta["import_run_id"] is None
 ```
-- [ ] **Paso 2:** falla.
-- [ ] **Paso 3 — Implementación:**
-```python
-import uuid
-from datetime import datetime, timezone
-from domain.rfc import normalize_rfc, validar_estructura
-from infrastructure.sat.parsers import es_unicamente_fraccion_vi
-from infrastructure.sat.sources import SAT_SOURCES
-
-def consultar_rfc_en_listas(supabase_client, expediente_id: str, rfc: str) -> list[dict]:
-    rfc = normalize_rfc(rfc)
-    if not validar_estructura(rfc):
-        return [{"factor_code": "rfc_formato_invalido", "rfc": rfc}]
-
-    resultados = []
-    for list_type, source in SAT_SOURCES.items():
-        if list_type == "art_69b_bis":
-            continue  # parser propio pendiente, ver nota en sources.py
-        resp = supabase_client.table("sat_lista_registros").select("*").eq("list_type", list_type).eq("rfc", rfc).execute()
-        matches = resp.data
-
-        found = len(matches) > 0
-        excepcion_vi = list_type == "art_69" and found and all(es_unicamente_fraccion_vi(m.get("situacion", "")) for m in matches)
-
-        supabase_client.table("consultas_sat").insert({
-            "id": str(uuid.uuid4()), "expediente_id": expediente_id, "rfc_consultado": rfc,
-            "list_type": list_type, "source_url": source.url, "found": found,
-            "match_substate": matches[0].get("art69b_substate") if found else None,
-            "match_detail": {"matches": matches} if found else None,
-            "consulted_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
-
-        if found and not excepcion_vi:
-            resultados.append({"list_type": list_type, "match_substate": matches[0].get("art69b_substate")})
-    return resultados
-```
-- [ ] **Paso 4:** pasa.
-- [ ] **Paso 5:** `git commit -m "feat: lookup local de RFC contra listas SAT con audit log"`
+- [x] **Paso 2:** falla (confirmado antes de implementar).
+- [x] **Paso 3 — Implementación real:** (ver commit `f30511f` — diff con el plan original abajo)
+  - Se agregó `_LISTAS_SIN_PARSER = {"art_69b_bis"}` en vez del `if list_type == "art_69b_bis": continue` suelto, para centralizar la exclusión en un solo lugar.
+  - Se agregó `_resolver_run_id_mas_reciente()` para poblar `consultas_sat.import_run_id` (columna agregada en la migración, commit `462b750`), que da trazabilidad al run de ingesta que originó cada consulta.
+  - Se filtró en Python (no vía `.order().limit()` de PostgREST) porque el `FakeSupabase` no implementa esos métodos fielmente y el test pasaría sin verificar nada real.
+- [x] **Paso 4:** pasa (5 tests en `test_sat_lookup.py`, suite completa del backend en verde).
+- [x] **Paso 5:** `git commit -m "feat: lookup local de RFC contra listas SAT con audit log"` (commit `f30511f`).
 
 ### Task 2.6: Spike de OCR (`pytesseract` en runtime serverless de Vercel)
 
 No es TDD — es una investigación con un resultado binario documentado, no una función a testear todavía.
 
-- [ ] **Paso 1:** `uv add pytesseract pdf2image pillow`
-- [ ] **Paso 2:** Crear `backend/src/infrastructure/ai/ocr.py` con una función mínima:
-```python
-import pytesseract
-from PIL import Image
-
-def ocr_imagen(imagen: Image.Image) -> str:
-    return pytesseract.image_to_string(imagen, lang="spa")
-```
-- [ ] **Paso 3:** Deployar este endpoint mínimo a Vercel (`backend/src/api/routers/admin.py`, ruta temporal `POST /admin/ocr-spike` que recibe una imagen de prueba) y ejecutarlo en el entorno real de Vercel, no solo local — el riesgo es específicamente si el binario de Tesseract está disponible ahí, algo que `uv run` local NO puede confirmar.
-- [ ] **Paso 4:** Documentar el resultado en este mismo archivo de plan (sección "Riesgos documentados"), con una de dos rutas:
-  - **Si funciona**: queda como está, se borra la ruta temporal, se integra en el pipeline real de extracción (Task 4.3).
-  - **Si NO funciona**: actualizar la sección "Riesgos" y "Decisiones de arquitectura" — el sistema exige PDF con capa de texto para la demo, documentado explícitamente como limitación conocida (no oculta) en el README de Fase 6.
-- [ ] **Paso 5:** `git commit -m "spike: validar disponibilidad de Tesseract OCR en runtime Vercel"` (independientemente del resultado — el spike documentado es el entregable, no solo el código).
+- [x] **Paso 1:** `uv add pdf2image pillow` — pytesseract ya estaba como dependencia transitiva.
+- [x] **Paso 2:** Creado `backend/src/infrastructure/ai/ocr.py` con `ocr_imagen()` que llama a `pytesseract.image_to_string()`.
+- [x] **Paso 3:** Deployado a Vercel con endpoint `POST /admin/ocr-spike`. Verificado: **Tesseract NO disponible** — `TesseractNotFoundError` en runtime serverless.
+- [x] **Paso 4:** Documentado en la sección "Riesgos documentados" (ver abajo). Recomendación: usar PyMuPDF/pdfplumber para extraer texto de PDFs con capa de texto, que es el caso de uso de esta demo.
+- [x] **Paso 5:** `git commit -m "spike: validar disponibilidad de Tesseract OCR en runtime Vercel"` — resultado: NO disponible, se documenta limitación.
 
 ### Task 2.7: Endpoint admin de ingesta SAT
 
