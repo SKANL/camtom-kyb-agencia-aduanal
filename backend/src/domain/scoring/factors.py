@@ -25,3 +25,17 @@ def factores_listas_sat(sat_hits: list[dict]) -> list[Factor]:
 
     factores.append(Factor("art_49bis_no_verificable", 0, False, "El Art. 49 Bis CFF no tiene lista pública consultable — requiere revisión manual.", evidence={"manual_review_required": True}))
     return factores
+
+def factores_discrepancias(resultado) -> list[Factor]:
+    factores = []
+    if resultado.rfc_discrepante:
+        factores.append(Factor("disc_rfc", 50, False, "El RFC no coincide entre los documentos del expediente."))
+    if resultado.razon_social_discrepante:
+        factores.append(Factor("disc_razon_social", 30, False, "La razón social no coincide de forma material entre los documentos."))
+    if resultado.domicilio_discrepante:
+        factores.append(Factor("disc_domicilio", 20, False, "El domicilio no coincide de forma material entre los documentos."))
+    if resultado.representante_discrepante:
+        factores.append(Factor("disc_representante", 25, False, "El nombre del representante legal no coincide entre los documentos."))
+    if resultado.fechas_inconsistentes:
+        factores.append(Factor("disc_fechas", 15, False, "Inconsistencia entre fechas de emisión/vigencia/vencimiento."))
+    return factores
