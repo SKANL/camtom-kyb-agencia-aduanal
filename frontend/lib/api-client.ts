@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+// El trailing slash de NEXT_PUBLIC_API_URL + el leading slash de cada path
+// produce URL con // (ej: vercel.app//expedientes), que Vercel redirige y
+// ese redirect rompe el preflight CORS. Normalizar a un solo slash.
+const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
