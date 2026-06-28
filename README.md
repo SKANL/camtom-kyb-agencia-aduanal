@@ -35,8 +35,11 @@ cd backend && uv run fastapi dev src/main.py
 cp frontend/.env.example frontend/.env.local
 # Required: NEXT_PUBLIC_API_URL=http://localhost:8000
 
-# 2. Start the dev server
-cd frontend && pnpm dev
+# 2. Install dependencies
+cd frontend && pnpm install
+
+# 3. Start the dev server
+pnpm dev
 ```
 
 ### Tests
@@ -92,21 +95,41 @@ Each service is deployed as an independent Vercel project. The split is intentio
 
 ## Scoring rubric
 
+All factors are additive (penalties, never deductions). The LLM provides structured metrics (similarity scores, entity matching); a deterministic rules engine assigns points.
+
 ```
-Factor                           Weight   Trigger
-─────────────────────────────────────────────────────────────────────────
-SAT Art. 69-B Definitivos        +100 pts RFC in EFOS definitive list → CRITICAL BLOCK (forces high_risk)
-SAT Art. 69 (embargo/crédito)    +30 pts  RFC in Art. 69 list
-Discrepancia razón social        +20 pts  LLM similarity < 0.85 between form name and CSF name
-Discrepancia domicilio           +15 pts  LLM similarity < 0.85 between form address and CSF address
-Comprobante domicilio vencido    +25 pts  Comprobante fecha_emision > 90 days ago
-CSF no vigente                   +30 pts  CSF fecha_emision > 30 days ago
-Completitud documental           -10 pts  Per missing required document (up to -50)
-─────────────────────────────────────────────────────────────────────────
-Decision thresholds:
+▌SAT list factors
+ Factor                           Weight   Trigger
+ ──────────────────────────────────────────────────────────────────────────
+ sat_69b_definitivo               100 pts  CRITICAL BLOCK — RFC in EFOS definitive list (Art. 69-B) → automatic high_risk
+ sat_69b_presunto                  40 pts  RFC in EFOS presumptive list (Art. 69-B)
+ sat_69b_bis                       35 pts  RFC in undue loss transfer list (Art. 69-B Bis)
+ sat_69_incumplido                 25 pts  RFC in delinquent taxpayers list (Art. 69)
+ art_49bis_no_verificable           0 pts  Art. 49-Bis has no public list — flagged for manual review
+
+▌Document discrepancy factors (LLM-computed similarity)
+ disc_rfc                          50 pts  RFC mismatch across documents
+ disc_razon_social                 30 pts  Business name similarity < 0.85
+ disc_domicilio                    20 pts  Address similarity < 0.85
+ disc_representante                25 pts  Legal representative name mismatch
+ disc_fechas                       15 pts  Inconsistent dates across documents
+
+▌Document completeness & freshness factors
+ doc_missing                       15 pts  Per missing required document (8 required types)
+ doc_data_incomplete               15 pts  Extracted document missing mandatory fields
+ doc_expired                       20 pts  Comprobante de domicilio older than 90 days
+ csf_stale                         25 pts  CSF older than current calendar month
+ manifestacion_incompleta          20 pts  Protesta declaration lacks explicit Art. 69-B/49-Bis clause
+ socios_incompletos                20 pts  Acta constitutiva present but no shareholders recorded
+ rep_legal_incompleto              15 pts  Representative ID missing full name
+
+▌Structural integrity
+ rfc_formato_invalido              60 pts  RFC fails structural validation → score triggers review_required (not high_risk)
+
+▌Decision thresholds
   safe             → score_total < 30
-  review_required  → 30 ≤ score_total < 60
-  high_risk        → score_total ≥ 60 OR any CRITICAL BLOCK
+  review_required  → 30 ≤ score_total < 70
+  high_risk        → score_total ≥ 70 OR any CRITICAL BLOCK
 ─────────────────────────────────────────────────────────────────────────
 ```
 
@@ -135,7 +158,7 @@ The platform uses AI for perception (reading documents), not for judgment (decid
 
 **Reconciliation phase:** Groq Llama compares two strings (e.g., the *razón social* the applicant typed in the form vs. the name on the *Constancia de Situación Fiscal*) and returns a `similarity` score and a `same_entity` boolean.
 
-**Scoring phase (deterministic):** The rules engine receives those metrics and applies hard-coded thresholds. A similarity below 0.85 adds 20 points — the model has no say in what that threshold is or what it implies. A score ≥ 60 is always `high_risk`; there is no "but the AI thinks it's fine" override.
+**Scoring phase (deterministic):** The rules engine receives those metrics and applies hard-coded thresholds. A similarity below 0.85 adds 30 points (`disc_razon_social`) or 20 points (`disc_domicilio`) — the model has no say in what those thresholds are or what they imply. A score ≥ 70 is always `high_risk`; there is no "but the AI thinks it's fine" override.
 
 **Harness engineering:** `AIHarness` wraps every LLM call with a SHA-256 content hash. The result is cached so that re-evaluating the same document with the same data produces byte-identical output without hitting the model again. This makes the platform fully auditable: given the same documents, the same RFC, and the same SAT fiscal lists, the decision will always be identical.
 
