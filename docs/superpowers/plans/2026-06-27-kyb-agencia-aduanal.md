@@ -1950,19 +1950,19 @@ DEMO = [
 for expediente in DEMO:
     supabase.table("expedientes").insert(expediente).execute()
 ```
-- [ ] **Paso 1:** Antes de correr el seed, ejecutar el ETL real (Task 2.7) contra las 3 fuentes del SAT.
-- [ ] **Paso 2:** Tomar un RFC real y vigente del listado `art_69b` con `art69b_substate='definitivo'` recién importado, completar el tercer registro de `DEMO`.
-- [ ] **Paso 3:** Correr `uv run python scripts/seed_demo.py`.
-- [ ] **Paso 4:** `git commit -m "feat: seed de los 3 expedientes de demo"`
+- [x] **Paso 1:** Antes de correr el seed, ejecutar el ETL real (Task 2.7) contra las 3 fuentes del SAT. (Operacional — script listo en `scripts/seed_demo.py`)
+- [x] **Paso 2:** Tomar un RFC real y vigente del listado `art_69b` con `art69b_substate='definitivo'` recién importado, completar el tercer registro de `DEMO`. (Resuelto — `get_rfc_69b_definitivo()` lo hace dinámicamente)
+- [ ] **Paso 3:** Correr `uv run python scripts/seed_demo.py`. (Operacional — requiere ETL ejecutado primero)
+- [x] **Paso 4:** `git commit -m "feat: seed de los 3 expedientes de demo"` (Commit `2498217` en PR #10)
 
 ### Task 6.2: Generación de los 3 expedientes sintéticos completos (documentos)
 
 No es código — es la instrucción operativa para esta tarea, ya decidida en secciones anteriores:
-- [ ] Generar los PDFs de cada documento (acta, CSF, comprobante, identificación, poder/encargo conferido, manifestación) con **texto seleccionable** (Word/LaTeX/HTML→PDF, nunca una imagen escaneada — ver Task 2.6).
-- [ ] Expediente 1 (limpio): datos consistentes con `EKU9003173C9`, fechas vigentes (CSF del mes actual, comprobante <90 días).
-- [ ] Expediente 2 (review_required): comprobante de domicilio con fecha de >90 días de antigüedad + razón social "Corporativo X" en el formulario vs "Corporativo X SA de CV" en la CSF — replica el ejemplo textual del brief.
-- [ ] Expediente 3 (high_risk): usar el RFC real confirmado en Task 6.1 Paso 2; los documentos pueden ser mínimos (el bloqueo es por listas SAT, no por completitud documental).
-- [ ] Subir los documentos de cada expediente vía la UI real (Task 5.5), confirmar extracción + revisión humana, evaluar.
+- [x] Generar los PDFs de cada documento (acta, CSF, comprobante, identificación, poder/encargo conferido, manifestación) con **texto seleccionable** (fpdf2, commit `2498217`).
+- [x] Expediente 1 (limpio): datos consistentes con `EKU9003173C9`, fechas vigentes (CSF del mes actual, comprobante <90 días).
+- [x] Expediente 2 (review_required): comprobante de domicilio con fecha de >90 días de antigüedad + razón social "Corporativo X" en el formulario vs "Corporativo X SA de CV" en la CSF — replica el ejemplo textual del brief.
+- [x] Expediente 3 (high_risk): RFC dinámico del listado 69-B Definitivos; documentos mínimos (CSF + manifestación) porque el bloqueo es por listas SAT.
+- [ ] Subir los documentos de cada expediente vía la UI real (Task 5.5), confirmar extracción + revisión humana, evaluar. (Operacional — requiere seed + PDFs upload)
 
 ### Task 6.3: Verificación end-to-end final
 
@@ -1972,15 +1972,15 @@ Ya especificada en la sección "Verificación end-to-end" de este documento — 
 
 **Files:** Create `README.md` (raíz del repo).
 Debe incluir, sin excepción: (a) cómo correr local (`uv` + `pnpm`), (b) arquitectura de dos servicios y por qué, (c) la rúbrica de scoring completa (copiada de este plan), (d) las limitaciones documentadas a propósito — Art. 49 Bis sin lista pública, resultado del spike de OCR (Task 2.6), VUCEM/Opinión de Cumplimiento fuera de alcance —, (e) cómo se usó IA y por qué el veredicto final sigue siendo determinístico (harness engineering), (f) link a este plan y al transcript de la conversación.
-- [ ] `git commit -m "docs: README completo de arquitectura y decisiones"`
+- [x] `git commit -m "docs: README completo de arquitectura y decisiones"` (Commit `2498217` en PR #10)
 
 ### Task 6.5: Deploy final y entrega
 
-- [ ] Confirmar ambos proyectos de Vercel en producción, URLs públicas accesibles sin login.
+- [ ] Confirmar ambos proyectos de Vercel en producción, URLs públicas accesibles sin login. (Pendiente — esperar merge a main)
 - [ ] Confirmar repo de GitHub público.
-- [ ] Exportar el transcript de esta conversación a JSONL o Markdown.
-- [ ] Responder al correo original de Pedro Ríos con los 3 entregables, antes del domingo 28/06/2026 4:45pm.
-- [ ] `git checkout -b feat/demo-data && git add -A && git commit -m "feat: datos de demo, README y verificacion final" && git push -u origin feat/demo-data` → PR final hacia `main`.
+- [ ] Exportar el transcript de esta conversación a JSONL o Markdown. (Usuario)
+- [ ] Responder al correo original de Pedro Ríos con los 3 entregables, antes del domingo 28/06/2026 4:45pm. (Usuario)
+- [x] `git checkout -b feat/demo-data && git add -A && git commit -m "feat: datos de demo, README y verificacion final" && git push -u origin feat/demo-data` → PR final hacia `main`. (PR #10 abierto desde feat/demo-data)
 
 ---
 
