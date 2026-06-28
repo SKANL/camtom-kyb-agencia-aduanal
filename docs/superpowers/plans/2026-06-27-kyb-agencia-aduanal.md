@@ -622,91 +622,10 @@ def es_unicamente_fraccion_vi(fraccion_raw: str) -> bool:
 - Consumes: `parse_art_69`, `parse_art_69b`, `SAT_SOURCES`
 - Produces: `ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict` con `{"run_id": str, "rows_imported": int}` — usado por el endpoint admin (Task 2.7).
 
-- [ ] **Paso 1 — `conftest.py` (fake mínimo del cliente `supabase-py`, suficiente para testear orquestación sin red):**
-```python
-import pytest
-
-class _FakeQuery:
-    def __init__(self, table, store):
-        self.table_name, self.store, self._filters = table, store, {}
-
-    def insert(self, data):
-        self.store.setdefault(self.table_name, [])
-        self.store[self.table_name].extend(data if isinstance(data, list) else [data])
-        return self
-
-    def update(self, data):
-        self._update_data = data
-        return self
-
-    def delete(self):
-        self._delete = True
-        return self
-
-    def select(self, *_args):
-        return self
-
-    def eq(self, field, value):
-        self._filters[field] = value
-        return self
-
-    def order(self, *_args, **_kwargs):
-        return self
-
-    def limit(self, *_args):
-        return self
-
-    def execute(self):
-        rows = self.store.get(self.table_name, [])
-        if getattr(self, "_delete", False):
-            self.store[self.table_name] = [r for r in rows if not all(r.get(k) == v for k, v in self._filters.items())]
-        elif hasattr(self, "_update_data"):
-            for r in rows:
-                if all(r.get(k) == v for k, v in self._filters.items()):
-                    r.update(self._update_data)
-        else:
-            self.data = [r for r in rows if all(r.get(k) == v for k, v in self._filters.items())]
-            return self
-        self.data = []
-        return self
-
-class FakeSupabase:
-    def __init__(self):
-        self.store: dict[str, list[dict]] = {}
-
-    def table(self, name):
-        return _FakeQuery(name, self.store)
-
-@pytest.fixture
-def fake_supabase():
-    return FakeSupabase()
-```
-- [ ] **Paso 2 — Test:**
-```python
-import pandas as pd
-import pytest
-from infrastructure.sat.ingest import ingest_list
-
-@pytest.fixture
-def art_69b_xlsx(tmp_path):
-    df = pd.DataFrame({"RFC": ["ghi030303xx3"], "Nombre del Contribuyente": ["Empresa Fantasma SA de CV"], "Situación del Contribuyente": ["Definitivo"]})
-    path = tmp_path / "art69b.xlsx"
-    df.to_excel(path, index=False)
-    return str(path)
-
-def test_ingest_list_carga_registros_y_cierra_el_run(fake_supabase, art_69b_xlsx):
-    result = ingest_list(fake_supabase, "art_69b", art_69b_xlsx)
-    assert result["rows_imported"] == 1
-    assert fake_supabase.store["sat_lista_registros"][0]["rfc"] == "GHI030303XX3"
-    assert fake_supabase.store["sat_import_runs"][0]["status"] == "success"
-
-def test_ingest_list_borra_registros_previos_del_mismo_list_type(fake_supabase, art_69b_xlsx):
-    fake_supabase.store["sat_lista_registros"] = [{"list_type": "art_69b", "rfc": "VIEJO000000X00"}]
-    ingest_list(fake_supabase, "art_69b", art_69b_xlsx)
-    assert "VIEJO000000X00" not in [r["rfc"] for r in fake_supabase.store["sat_lista_registros"]]
-```
-- [ ] **Paso 3:** falla.
-- [ ] **Paso 4 — Implementación:**
+- [x] **Paso 1 — `conftest.py`:** implementado y extendido (ver nota abajo) — commits `38dff63`, `caf44cf`, `dbb1f31`.
+- [x] **Paso 2 — Test:** implementado tal cual el brief + 5 tests adicionales (ver nota).
+- [x] **Paso 3:** falla (confirmado antes de implementar).
+- [x] **Paso 4 — Implementación:** implementado tal cual el brief inicialmente, luego corregido tras revisión de contexto fresco (ver nota abajo).
 ```python
 import hashlib, uuid
 from datetime import datetime, timezone
@@ -745,8 +664,14 @@ def ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict:
     }).eq("id", run_id).execute()
     return {"run_id": run_id, "rows_imported": len(records)}
 ```
-- [ ] **Paso 5:** pasa.
-- [ ] **Paso 6:** `git commit -m "feat: ingesta transaccional de listas SAT a tabla local"`
+- [x] **Paso 5:** pasa (25/25 tests del suite completo del backend).
+- [x] **Paso 6:** `git commit -m "feat: ingesta transaccional de listas SAT a tabla local"` (commit `38dff63`).
+
+> **Desvíos del brief (post-implementación + 2 rondas de revisión de contexto fresco):**
+> 1. El implementador cambió los `KeyError` opacos del brief (`SAT_SOURCES[list_type]` y el dict de parsers) por `ValueError` explícitos, validados ANTES de escribir nada en `sat_import_runs` — evita un run huérfano en `status="running"` si `list_type` está registrado en `SAT_SOURCES` pero no tiene parser (caso real: `art_69b_bis`). Aceptado por la review.
+> 2. **CRITICAL real encontrado por la review fresca**: el código del brief hacía `delete` de los registros viejos ANTES del `insert` de los nuevos, sin ninguna garantía atómica real (4 llamadas HTTP independientes a Supabase) — pese a que el título de la tarea dice "ingesta transaccional". Si el insert fallaba a mitad de camino, la lista quedaba vacía (viejos borrados, nuevos no insertados) y el run quedaba en `status="running"` para siempre, sin error visible. Riesgo alto porque esta lista alimenta el bloqueo crítico `sat_69b_definitivo` (100 pts) en Fase 3. **Fix (commit `caf44cf`):** insertar primero los registros nuevos (con su propio `batch_id`), borrar los viejos filtrando por `import_batch_id != batch_id` solo si el insert tuvo éxito, y envolver todo en `try/except` que marca `status="failed"` y re-lanza ante cualquier excepción.
+> 3. **WARNING de la segunda review (no bloqueante, corregido de todos modos)**: el fake de test (`_FakeQuery.neq`) usaba semántica Python (`!=`) en vez de la semántica NULL-aware real de SQL/PostgREST (`NULL <> X` nunca es `true`), lo cual podía ocultar filas huérfanas con `import_batch_id IS NULL` que nunca se borrarían en producción. Mitigado hoy por el `NOT NULL` del schema, pero corregido en el fake para que sea fiel a Postgres independientemente del esquema actual (commit `dbb1f31`).
+> 4. Veredicto final de la review: **APPROVED**. Decisión y verificación documentadas en Engram y en `.superpowers/sdd/progress.md`.
 
 ### Task 2.5: Lookup local + audit log (`consultas_sat`)
 
