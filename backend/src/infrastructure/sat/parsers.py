@@ -21,7 +21,7 @@ def parse_art_69(xlsx_path: str) -> list[dict]:
     rows = []
     for _, row in df.iterrows():
         rfc = normalize_rfc(str(row[ART_69_COLUMNS["rfc"]]))
-        if not rfc:
+        if not rfc or rfc == "NAN":
             continue
         rows.append({
             "rfc": rfc,

@@ -20,6 +20,24 @@ def test_parse_art_69_normaliza_rfc(art_69_xlsx):
     assert rows[0]["rfc"] == "ABC010101XX1"
 
 
+@pytest.fixture
+def art_69_xlsx_con_fila_vacia(tmp_path):
+    df = pd.DataFrame({
+        "RFC": ["abc010101xx1", float("nan")],
+        "Situación del contribuyente": ["No localizado", "Total: 1 registro"],
+        "Fracción": ["I", float("nan")],
+    })
+    path = tmp_path / "art69_con_fila_vacia.xlsx"
+    df.to_excel(path, index=False)
+    return str(path)
+
+
+def test_parse_art_69_descarta_fila_con_rfc_nan(art_69_xlsx_con_fila_vacia):
+    rows = parse_art_69(art_69_xlsx_con_fila_vacia)
+    assert len(rows) == 1
+    assert rows[0]["rfc"] == "ABC010101XX1"
+
+
 def test_es_unicamente_fraccion_vi_true():
     assert es_unicamente_fraccion_vi("VI") is True
 
