@@ -73,6 +73,12 @@ def test_extract_documento(client, fake_supabase):
     assert data["fields"]["rfc"] == "EKU9003173C9"
 
 
+def test_extract_documento_404_si_no_existe(client, fake_supabase):
+    response = client.post("/documentos/no-existe/extract")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Documento no encontrado"
+
+
 def test_patch_documento_human_reviewed(client, fake_supabase):
     doc_id = "doc-xyz"
     fake_supabase.store["documentos"] = [

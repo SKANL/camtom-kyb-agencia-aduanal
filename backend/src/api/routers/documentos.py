@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.deps import get_supabase_client
@@ -38,7 +38,10 @@ def crear_documento(body: CrearDocumentoBody, supabase=Depends(get_supabase_clie
 
 @router.post("/{documento_id}/extract")
 def extract_documento(documento_id: str, supabase=Depends(get_supabase_client)):
-    doc = supabase.table("documentos").select("*").eq("id", documento_id).execute().data[0]
+    result = supabase.table("documentos").select("*").eq("id", documento_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    doc = result.data[0]
     texto = extraer_texto(doc["storage_path"])
     campos = extraer_campos(supabase, doc["doc_type"], texto)
     supabase.table("documentos").update(
