@@ -43,8 +43,13 @@ class _FakeQuery:
     def _matches(self, row):
         if not all(row.get(k) == v for k, v in self._filters.items()):
             return False
-        if not all(row.get(k) != v for k, v in self._neq_filters.items()):
-            return False
+        # Semantica SQL: NULL <> X siempre evalua a NULL (no a true), nunca
+        # matchea un filtro neq. Replicado aca para que el fake sea fiel a
+        # PostgREST y no oculte filas huerfanas con valor NULL en produccion.
+        for k, v in self._neq_filters.items():
+            value = row.get(k)
+            if value is None or value == v:
+                return False
         return True
 
     def execute(self):

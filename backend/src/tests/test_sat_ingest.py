@@ -35,7 +35,12 @@ def test_ingest_list_carga_registros_y_cierra_el_run(fake_supabase, art_69b_xlsx
 
 
 def test_ingest_list_borra_registros_previos_del_mismo_list_type(fake_supabase, art_69b_xlsx):
-    fake_supabase.store["sat_lista_registros"] = [{"list_type": "art_69b", "rfc": "VIEJO000000X00"}]
+    # import_batch_id es NOT NULL en el schema real (toda fila de una corrida
+    # previa real tiene un UUID propio, nunca None) — el fixture debe reflejar
+    # eso para no ocultar el comportamiento NULL-aware de Supabase/PostgREST.
+    fake_supabase.store["sat_lista_registros"] = [
+        {"list_type": "art_69b", "rfc": "VIEJO000000X00", "import_batch_id": "batch-anterior"}
+    ]
     ingest_list(fake_supabase, "art_69b", art_69b_xlsx)
     assert "VIEJO000000X00" not in [r["rfc"] for r in fake_supabase.store["sat_lista_registros"]]
 
