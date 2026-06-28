@@ -8,6 +8,153 @@ A Know Your Business (KYB) platform for a Mexican customs agency (*agencia aduan
 
 ---
 
+## How this project was built — the workflow
+
+This project was developed using **Gentle AI** (Spec-Driven Development), a structured AI pipeline where an orchestrator agent delegates each phase to dedicated sub-agents with fresh context. Every phase has explicit inputs, outputs, and validation gates.
+
+```mermaid
+flowchart LR
+    subgraph Planning
+        A[Gemini Deep Research<br/>Domain investigation]
+        B[sdd-explore<br/>Codebase mapping]
+        C[sdd-propose<br/>Change proposal]
+    end
+
+    subgraph Specification
+        D[sdd-spec<br/>Delta specs & scenarios]
+        E[sdd-design<br/>Technical design]
+    end
+
+    subgraph Execution
+        F[sdd-tasks<br/>Task breakdown]
+        G[sdd-apply<br/>Implementation x6]
+        H[sdd-verify<br/>Test & validate]
+    end
+
+    subgraph Delivery
+        I[Fresh-context PR review<br/>R1-R4 review agents]
+        J[PR merge → main]
+        K[sdd-archive<br/>Persist final state]
+    end
+
+    A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K
+```
+
+| Phase | Tool | What happened |
+|---|---|---|
+| **Domain research** | Gemini 2.5 Pro (Deep Research) | 1 prompt → 30-page investigation of SAT fiscal lists, RGCE 2026 Regla 1.4.14, scoring algorithms |
+| **Planning** | Claude Code + Gentle AI SDD | sdd-propose → sdd-spec → sdd-design → sdd-tasks, all orchestrated by gentle-orchestrator |
+| **Execution** | Claude Code + SDD sub-agents | 6 phases, each with fresh sdd-apply sub-agent, sdd-verify validation, and gatekeeper checks |
+| **Review** | R1-R4 review agents + Engram | Fresh-context adversarial review on every PR: Risk, Readability, Reliability, Resilience |
+| **Memory** | Engram (persistent) | Cross-session memory: 63 observations across 6 sessions, every decision/bug/discovery saved |
+
+> **The orchestrator never writes code.** It delegates. Each sub-agent gets a fresh context, does one job, and returns. The orchestrator validates the result before advancing — this is how we eliminate hallucination drift and keep the system predictable.
+
+---
+
+## Tech stack
+
+### Why these tools, when they were used, and how they shaped the outcome
+
+| Tool | Used for | Used when | Why |
+|---|---|---|---|
+| **Next.js 15** (App Router) | Frontend framework | Fase 5 (UI/Dashboard) | Native Vercel deploy, App Router for layout/loading conventions, RSC-ready |
+| **Tailwind CSS + shadcn/ui** | Styling & component system | Fase 5 | Design-system-in-a-box: `shadcn@latest add button -b base` gives you a themed, accessible Button in one command |
+| **Zustand** | Client state | Fase 5 | Minimal (<1KB), no boilerplate, works outside React tree for API client state |
+| **FastAPI** (Python) | Backend API framework | Fases 1–4 | Native async, Pydantic schemas → auto OpenAPI, built-in validation |
+| **uv** (Astral) | Python package & project manager | Fase 1 (scaffolding) | 10x faster than pip, native pyproject.toml support, single-binary install |
+| **Supabase** (cloud only) | Postgres + Storage + Auth | Fases 1–4 | Postgres with REST API built-in, Storage for PDFs, no local Docker needed |
+| **LangChain + langchain-groq** | AI orchestration | Fase 4 (AI extraction) | Structured LLM calls with Pydantic output parsers, retry logic |
+| **Groq (Llama 3)** | LLM inference | Fase 4 | 500+ tok/s on Llama 3, free tier, no rate limits for sandbox use |
+| **pnpm** | Node package manager | Fase 5 | Disk-efficient, strict, faster than npm/yarn |
+| **Vercel** | Deployment (both services) | Fase 1 (deploy) | Zero-config git push deploy, Python runtime support, preview deployments per branch |
+
+### The meta-tools: Gentle AI, SDD, Codegraph, and Engram
+
+#### Gentle AI — orchestrated sub-agent pipeline
+
+**What:** An agent architecture where a lightweight orchestrator (`gentle-orchestrator`) delegates every task to a dedicated sub-agent. The orchestrator never writes code — it manages context, validates gates, and synthesizes results.
+
+**Used when:** Throughout the entire project. Every Fase (1–6) was implemented via the same pipeline: propose → spec → design → tasks → apply → verify → archive.
+
+**Why:** Three reasons:
+
+1. **Fresh context per task.** Each sub-agent starts with zero baggage. It reads only what it needs (spec + design + previous apply-progress) and produces only its artifact. No hallucination drift, no context bleed between tasks.
+
+2. **Idempotent phases.** Same inputs → same outputs. The orchestrator validates each phase result against a contract (status, artifacts, risks, next_recommended) before advancing. If a phase fails the gatekeeper, it re-runs with corrective feedback — not a blanket retry.
+
+3. **Testable workflow.** Every phase has explicit dependencies (proposal → spec → design → tasks → apply → verify → archive). You can read the SDD progress ledger (`.superpowers/sdd/progress.md`) and trace exactly what each phase produced, what it found, and what it deferred.
+
+#### Codegraph — surgical code intelligence
+
+**What:** A pre-computed knowledge graph of every symbol, edge, and file in the codebase, stored in SQLite. One `codegraph_explore("symbol_name")` call returns the verbatim source + call path + blast radius — replacing 4–10 file reads.
+
+**Used when:** Before every edit or structural question. The `CLAUDE.md` rule says: "Regla de oro: antes de leer, consultá CodeGraph."
+
+**Why:** Context window is finite. Reading 4 files to trace a function's call path uses 12–15K tokens. Codegraph does it in one call (~2–3K tokens). This is the difference between understanding a flow in 5 seconds vs. 5 minutes of file-hopping.
+
+#### Engram — persistent memory across sessions
+
+**What:** A vector/token memory system that survives across Claude Code sessions and compactions.
+
+**Used when:** Every session start (recovery), after every decision/bugfix/discovery (proactive save), and at session end (summary).
+
+**Why:** With a 48-hour deadline across 6+ sessions, each session would otherwise start blind. Engram persisted 63 observations across 6 sessions — every bug found, every decision made, every gap discovered. The `mem_context` call at the start of each session recovered exactly what the previous session learned.
+
+---
+
+## SDD workflow in action: the 6 phases
+
+```mermaid
+gantt
+    title KYB Implementation Timeline (48h)
+    dateFormat  HH:mm
+    axisFormat %H:%M
+
+    section Phase 1 - Scaffolding
+    Backend (FastAPI+uv)     :p1a, 0h, 4h
+    Frontend (Next.js+shadcn) :p1b, 0h, 4h
+    Supabase schema + GitHub  :p1c, 2h, 6h
+    Deploy to Vercel          :p1d, 4h, 8h
+
+    section Phase 2 - SAT ETL
+    RFC validator             :p2a, 8h, 10h
+    Art. 69 parser            :p2b, 10h, 12h
+    Art. 69-B parser          :p2c, 11h, 13h
+    Lookup + Audit log        :p2d, 12h, 15h
+    Ingest pipeline           :p2e, 14h, 17h
+
+    section Phase 3 - Scoring Engine
+    AI Harness (cache)        :p3a, 17h, 19h
+    SAT factors               :p3b, 19h, 20h
+    Discrepancy factors       :p3c, 20h, 21h
+    Completeness factors      :p3d, 21h, 22h
+    Score aggregator          :p3e, 22h, 23h
+    Lifecycle + Actions       :p3f, 23h, 25h
+    Evaluation service        :p3g, 24h, 27h
+
+    section Phase 4 - AI Extraction
+    Extraction schemas        :p4a, 27h, 29h
+    Groq extraction harness   :p4b, 29h, 31h
+    OCR fallback              :p4c, 30h, 32h
+    Semantic reconciliation   :p4d, 32h, 34h
+    Router integration        :p4e, 34h, 37h
+
+    section Phase 5 - Dashboard UI
+    Clickhouse theme          :p5a, 37h, 39h
+    9 UI pages                :p5b, 39h, 45h
+    Backend CRUD endpoints    :p5c, 38h, 44h
+
+    section Phase 6 - Demo Data
+    Synthetic PDFs            :p6a, 45h, 46h
+    3 expedientes             :p6b, 46h, 47h
+    README + submission       :p6c, 47h, 48h
+```
+
+Each phase followed the same SDD pipeline: a dedicated `sdd-apply` sub-agent received the task brief (from `sdd-tasks`), implemented code and tests, then an `sdd-verify` sub-agent validated against the spec. A fresh-context reviewer (R1–R4 agents) reviewed the PR before merge. Every CRITICAL finding was fixed before the PR reached `main`.
+
+---
+
 ## Running locally
 
 ### Prerequisites
@@ -78,6 +225,42 @@ Each service is deployed as an independent Vercel project. The split is intentio
 - **Separation of concerns** — the UI can be replaced or extended without touching business logic.
 - **API-first** — the backend is a standalone REST API consumable by any client (CLI, other systems, future mobile app).
 - **Thin frontend** — the Next.js project is purely a presentation layer; it holds no business rules and never touches the database directly.
+
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend (Next.js 15 — Vercel)"]
+        P[Pages / App Router]
+        Z[Zustand stores]
+        API[API client layer]
+    end
+
+    subgraph Backend["Backend (FastAPI — Vercel)"]
+        R[REST endpoints]
+        S[Scoring engine]
+        H[AI Harness<br/>SHA-256 cache]
+        E[ETL pipeline]
+    end
+
+    subgraph AI["AI Layer"]
+        G[Groq / Llama 3<br/>via langchain-groq]
+    end
+
+    subgraph Data["Data Layer"]
+        SQ[Supabase Postgres]
+        ST[Supabase Storage]
+    end
+
+    P --> API --> R
+    R --> S
+    R --> H --> G
+    R --> E --> SQ
+    S --> SQ
+    H --> SQ
+    SQ --> ST
+
+    style H fill:#ff6,stroke:#333
+    style S fill:#6f6,stroke:#333
+```
 
 ### Data layer
 
@@ -169,3 +352,22 @@ The platform uses AI for perception (reading documents), not for judgment (decid
 The full architecture decisions, data model, exact scoring rationale, and granular TDD task breakdown are in:
 
 [`docs/superpowers/plans/2026-06-27-kyb-agencia-aduanal.md`](docs/superpowers/plans/2026-06-27-kyb-agencia-aduanal.md)
+
+---
+
+## The meta-lesson: fewer prompts, more structure
+
+This project was built with **3 prompts** — not 300.
+
+1. **Gemini Deep Research** (1 prompt): Domain investigation of SAT lists, RGCE 2026, scoring algorithms.
+2. **Phase start** (1 prompt per session): "Continue the implementation; detect the current state from git, Engram, and the plan."
+3. **Phase continuation** (1 prompt per task, auto-generated by SDD): The orchestrator delegates to sub-agents with task-specific instructions.
+
+Why this matters:
+
+- **Fewer prompts → less ambiguity.** Each prompt is the output of a deterministic pipeline (SDD), not a free-form conversation.
+- **Sub-agents are disposable.** A sub-agent that produces a bad artifact costs the orchestrator's re-run, not a manual correction.
+- **Fresh context catches bugs.** The R1–R4 review agents read the PR diff with no memory of how it was built. They find things the implementer's context-blindness hides.
+- **Engram is the single source of truth.** 63 observations across 6 sessions. Every decision, bug, and gap is recoverable without re-asking the user.
+
+This is the difference between "prompt engineering" and **pipeline engineering** — designing a repeatable, testable, auditable workflow instead of hoping the next prompt will guess right.

@@ -1952,7 +1952,7 @@ for expediente in DEMO:
 ```
 - [x] **Paso 1:** Antes de correr el seed, ejecutar el ETL real (Task 2.7) contra las 3 fuentes del SAT. (Operacional — script listo en `scripts/seed_demo.py`)
 - [x] **Paso 2:** Tomar un RFC real y vigente del listado `art_69b` con `art69b_substate='definitivo'` recién importado, completar el tercer registro de `DEMO`. (Resuelto — `get_rfc_69b_definitivo()` lo hace dinámicamente)
-- [ ] **Paso 3:** Correr `uv run python scripts/seed_demo.py`. (Operacional — requiere ETL ejecutado primero)
+- [x] **Paso 3:** Correr `uv run python scripts/seed_demo.py`. (Ejecutado — 3 expedientes creados: EKU9003173C9, COX010101AB1, MAB9307148T4)
 - [x] **Paso 4:** `git commit -m "feat: seed de los 3 expedientes de demo"` (Commit `2498217` en PR #10)
 
 ### Task 6.2: Generación de los 3 expedientes sintéticos completos (documentos)
