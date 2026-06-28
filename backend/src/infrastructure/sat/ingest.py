@@ -41,6 +41,7 @@ def ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict:
         records = [{
             "list_type": list_type, "rfc": r["rfc"], "razon_social": r.get("razon_social"),
             "art69b_substate": r.get("art69b_substate"), "situacion": r.get("situacion"),
+            "fraccion": r.get("fraccion"),
             "source_url": source.url, "import_batch_id": batch_id,
         } for r in rows]
 

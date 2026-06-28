@@ -54,3 +54,14 @@ def test_import_run_id_queda_none_si_no_hay_run_success(fake_supabase):
     assert len(consultas) == 2
     assert all(c["import_run_id"] is None for c in consultas)
     assert all(c["found"] is False for c in consultas)
+
+
+def test_rfc_en_art69_solo_fraccion_vi_no_genera_hit(fake_supabase):
+    """RFC en Art. 69 listado UNICAMENTE bajo Fraccion VI no debe generar
+    hit (excepcion del brief: creditos condonados no son incumplimiento).
+    """
+    fake_supabase.store["sat_lista_registros"] = [
+        {"list_type": "art_69", "rfc": "EKU9003173C9", "situacion": "Condonado", "fraccion": "VI"},
+    ]
+    resultado = consultar_rfc_en_listas(fake_supabase, "exp-1", "EKU9003173C9")
+    assert resultado == []

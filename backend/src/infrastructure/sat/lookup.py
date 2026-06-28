@@ -27,7 +27,7 @@ def consultar_rfc_en_listas(supabase_client, expediente_id: str, rfc: str) -> li
         matches = resp.data
 
         found = len(matches) > 0
-        excepcion_vi = list_type == "art_69" and found and all(es_unicamente_fraccion_vi(m.get("situacion", "")) for m in matches)
+        excepcion_vi = list_type == "art_69" and found and all(es_unicamente_fraccion_vi(m.get("fraccion", "")) for m in matches)
 
         import_run_id = _resolver_run_id_mas_reciente(supabase_client, list_type)
 
