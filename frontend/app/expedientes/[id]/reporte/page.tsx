@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { EvaluateButton } from "./EvaluateButton";
 
 const DECISION_BADGE: Record<string, { label: string; className: string }> = {
-  safe: { label: "✓ Safe", className: "bg-success text-white text-base px-3 py-1" },
+  safe: { label: "✓ Safe", className: "bg-success text-background text-base px-3 py-1" },
   review_required: { label: "⚠ Review required", className: "bg-warning text-background text-base px-3 py-1" },
-  high_risk: { label: "✕ High risk", className: "bg-destructive text-white text-base px-3 py-1" },
+  high_risk: { label: "✕ High risk", className: "bg-destructive text-background text-base px-3 py-1" },
 };
 
 export default async function ReportePage({

@@ -3,9 +3,9 @@ import { api, type Expediente } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 
 const DECISION_BADGE: Record<string, { label: string; className: string }> = {
-  safe: { label: "Safe", className: "bg-success text-white" },
+  safe: { label: "Safe", className: "bg-success text-background" },
   review_required: { label: "Review required", className: "bg-warning text-background" },
-  high_risk: { label: "High risk", className: "bg-destructive text-white" },
+  high_risk: { label: "High risk", className: "bg-destructive text-background" },
 };
 
 export default async function DashboardPage() {
