@@ -47,9 +47,9 @@ def ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict:
 
         if records:
             supabase_client.table("sat_lista_registros").insert(records).execute()
-        supabase_client.table("sat_lista_registros").delete().eq(
-            "list_type", list_type
-        ).neq("import_batch_id", batch_id).execute()
+            supabase_client.table("sat_lista_registros").delete().eq(
+                "list_type", list_type
+            ).neq("import_batch_id", batch_id).execute()
 
         supabase_client.table("sat_import_runs").update({
             "status": "success", "rows_imported": len(records),

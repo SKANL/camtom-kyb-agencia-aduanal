@@ -2,16 +2,9 @@ import uuid
 from datetime import datetime, timezone
 
 from src.domain.rfc import normalize_rfc, validar_estructura
+from src.infrastructure.sat.ingest import _PARSERS
 from src.infrastructure.sat.parsers import es_unicamente_fraccion_vi
 from src.infrastructure.sat.sources import SAT_SOURCES
-
-# Listas registradas en SAT_SOURCES que todavia no tienen parser de ingesta
-# (ver infrastructure.sat.ingest._PARSERS). Se excluyen explicitamente aqui
-# en vez de comparar contra un literal string suelto en el loop: si se agrega
-# un cuarto list_type sin parser, declararlo en este set es mas dificil de
-# pasar por alto que un `if list_type == "...": continue` aislado, y un solo
-# lugar documenta la razon (en vez de un comentario inline facil de borrar).
-_LISTAS_SIN_PARSER = {"art_69b_bis"}
 
 
 def consultar_rfc_en_listas(supabase_client, expediente_id: str, rfc: str) -> list[dict]:
@@ -21,7 +14,7 @@ def consultar_rfc_en_listas(supabase_client, expediente_id: str, rfc: str) -> li
 
     resultados = []
     for list_type, source in SAT_SOURCES.items():
-        if list_type in _LISTAS_SIN_PARSER:
+        if list_type not in _PARSERS:
             continue
         resp = supabase_client.table("sat_lista_registros").select("*").eq("list_type", list_type).eq("rfc", rfc).execute()
         matches = resp.data
