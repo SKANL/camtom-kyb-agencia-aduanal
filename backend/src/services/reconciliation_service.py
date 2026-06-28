@@ -3,13 +3,15 @@ from infrastructure.ai.similarity import comparar_semanticamente
 
 
 def reconciliar_expediente(supabase_client, expediente_id: str):
-    expediente = (
+    result = (
         supabase_client.table("expedientes")
         .select("*")
         .eq("id", expediente_id)
         .execute()
-        .data[0]
     )
+    if not result.data:
+        raise ValueError(f"Expediente {expediente_id!r} no encontrado")
+    expediente = result.data[0]
     documentos = {
         d["doc_type"]: d
         for d in supabase_client.table("documentos")

@@ -93,3 +93,12 @@ def test_patch_documento_human_reviewed(client, fake_supabase):
     rows = fake_supabase.store.get("documentos", [])
     updated = next(r for r in rows if r["id"] == doc_id)
     assert updated["extraction_status"] == "human_reviewed"
+
+
+def test_crear_documento_doc_type_invalido_retorna_422(client, fake_supabase):
+    response = client.post(
+        "/documentos",
+        json={"expediente_id": "exp-1", "doc_type": "doc_falso", "entry_method": "manual"},
+    )
+    assert response.status_code == 422
+    assert "doc_type inválido" in response.json()["detail"]
