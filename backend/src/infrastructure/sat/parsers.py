@@ -44,10 +44,17 @@ def parse_art_69b(xlsx_path: str) -> list[dict]:
         if not rfc:
             continue
         situacion_raw = str(row[ART_69B_COLUMNS["situacion"]]).strip().lower()
+        if situacion_raw not in _ART_69B_SUBSTATE_MAP:
+            raise ValueError(
+                f"situacion no mapeada en Art. 69-B: {situacion_raw!r} (RFC {rfc}). "
+                "Agregar la variante a _ART_69B_SUBSTATE_MAP antes de ingerir este archivo: "
+                "un sub-estado sin mapear se perderia silenciosamente y un bloqueo critico "
+                "(sat_69b_definitivo) podria no aplicarse."
+            )
         rows.append({
             "rfc": rfc,
             "razon_social": str(row[ART_69B_COLUMNS["razon_social"]]),
-            "art69b_substate": _ART_69B_SUBSTATE_MAP.get(situacion_raw),
+            "art69b_substate": _ART_69B_SUBSTATE_MAP[situacion_raw],
             "situacion": situacion_raw,
         })
     return rows

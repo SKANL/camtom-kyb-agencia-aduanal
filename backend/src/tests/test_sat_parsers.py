@@ -43,3 +43,20 @@ def art_69b_xlsx(tmp_path):
 def test_parse_art_69b_mapea_substate_definitivo(art_69b_xlsx):
     rows = parse_art_69b(art_69b_xlsx)
     assert rows[0]["art69b_substate"] == "definitivo"
+
+
+@pytest.fixture
+def art_69b_xlsx_situacion_no_mapeada(tmp_path):
+    df = pd.DataFrame({
+        "RFC": ["jkl040404xx4"],
+        "Nombre del Contribuyente": ["Empresa Desconocida SA de CV"],
+        "Situación del Contribuyente": ["Situación no contemplada"],
+    })
+    path = tmp_path / "art69b_no_mapeado.xlsx"
+    df.to_excel(path, index=False)
+    return str(path)
+
+
+def test_parse_art_69b_rechaza_situacion_no_mapeada(art_69b_xlsx_situacion_no_mapeada):
+    with pytest.raises(ValueError, match="situacion no mapeada"):
+        parse_art_69b(art_69b_xlsx_situacion_no_mapeada)
