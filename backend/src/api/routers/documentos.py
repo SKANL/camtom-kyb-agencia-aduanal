@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from api.deps import get_supabase_client
 from infrastructure.ai.extract import extraer_campos
 from infrastructure.ai.pdf import extraer_texto
+from infrastructure.ai.schemas import SCHEMA_REGISTRY
 from infrastructure.storage.supabase_storage import crear_signed_upload_url
 
 router = APIRouter(prefix="/documentos", tags=["documentos"])
@@ -19,6 +20,8 @@ class CrearDocumentoBody(BaseModel):
 
 @router.post("")
 def crear_documento(body: CrearDocumentoBody, supabase=Depends(get_supabase_client)):
+    if body.doc_type not in SCHEMA_REGISTRY:
+        raise HTTPException(status_code=422, detail=f"doc_type inválido: {body.doc_type!r}. Valores: {sorted(SCHEMA_REGISTRY)}")
     documento_id = str(uuid.uuid4())
     path = f"{body.expediente_id}/{body.doc_type}.pdf" if body.entry_method == "uploaded" else None
     supabase.table("documentos").insert(
