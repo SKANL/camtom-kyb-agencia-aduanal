@@ -18,6 +18,12 @@ class CrearDocumentoBody(BaseModel):
     entry_method: str  # "uploaded" | "manual"
 
 
+@router.get("")
+def list_documentos(expediente_id: str, supabase=Depends(get_supabase_client)):
+    result = supabase.table("documentos").select("*").eq("expediente_id", expediente_id).execute()
+    return result.data
+
+
 @router.post("")
 def crear_documento(body: CrearDocumentoBody, supabase=Depends(get_supabase_client)):
     if body.doc_type not in SCHEMA_REGISTRY:
