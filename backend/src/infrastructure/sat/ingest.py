@@ -34,21 +34,30 @@ def ingest_list(supabase_client, list_type: str, xlsx_path: str) -> dict:
         "file_hash": file_hash(xlsx_path),
     }).execute()
 
-    parser = _PARSERS[list_type]
-    rows = parser(xlsx_path)
-    batch_id = str(uuid.uuid4())
-    records = [{
-        "list_type": list_type, "rfc": r["rfc"], "razon_social": r.get("razon_social"),
-        "art69b_substate": r.get("art69b_substate"), "situacion": r.get("situacion"),
-        "source_url": source.url, "import_batch_id": batch_id,
-    } for r in rows]
+    try:
+        parser = _PARSERS[list_type]
+        rows = parser(xlsx_path)
+        batch_id = str(uuid.uuid4())
+        records = [{
+            "list_type": list_type, "rfc": r["rfc"], "razon_social": r.get("razon_social"),
+            "art69b_substate": r.get("art69b_substate"), "situacion": r.get("situacion"),
+            "source_url": source.url, "import_batch_id": batch_id,
+        } for r in rows]
 
-    supabase_client.table("sat_lista_registros").delete().eq("list_type", list_type).execute()
-    if records:
-        supabase_client.table("sat_lista_registros").insert(records).execute()
+        if records:
+            supabase_client.table("sat_lista_registros").insert(records).execute()
+        supabase_client.table("sat_lista_registros").delete().eq(
+            "list_type", list_type
+        ).neq("import_batch_id", batch_id).execute()
 
-    supabase_client.table("sat_import_runs").update({
-        "status": "success", "rows_imported": len(records),
-        "finished_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", run_id).execute()
-    return {"run_id": run_id, "rows_imported": len(records)}
+        supabase_client.table("sat_import_runs").update({
+            "status": "success", "rows_imported": len(records),
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", run_id).execute()
+        return {"run_id": run_id, "rows_imported": len(records)}
+    except Exception:
+        supabase_client.table("sat_import_runs").update({
+            "status": "failed",
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", run_id).execute()
+        raise
