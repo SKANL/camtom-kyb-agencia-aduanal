@@ -15,16 +15,24 @@ def call_with_harness(supabase_client, call_type: str, payload: dict, compute: C
         return cached.data[0]["result"]
 
     last_error = None
+    result = None
     for attempt in range(max_retries + 1):
         try:
             result = compute()
-            supabase_client.table("ai_call_cache").insert({
-                "id": str(uuid.uuid4()), "input_hash": input_hash, "call_type": call_type,
-                "schema_version": SCHEMA_VERSION, "result": result, "retries": attempt,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }).execute()
-            return result
-        except Exception as exc:  # noqa: BLE001 — frontera deliberada: cualquier falla cae al reintento
+            break
+        except Exception as exc:  # noqa: BLE001 — frontera deliberada: cualquier falla de compute cae al reintento
             last_error = exc
-            continue
-    raise RuntimeError(f"Harness: agotados los reintentos para {call_type}") from last_error
+
+    if result is None:
+        raise RuntimeError(f"Harness: agotados los reintentos para {call_type}") from last_error
+
+    try:
+        supabase_client.table("ai_call_cache").insert({
+            "id": str(uuid.uuid4()), "input_hash": input_hash, "call_type": call_type,
+            "schema_version": SCHEMA_VERSION, "result": result, "retries": max_retries,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:  # noqa: BLE001 — write failure is tolerated; next call will re-cache
+        pass
+
+    return result
