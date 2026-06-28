@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routers import admin
+from src.api.routers.documentos import router as documentos_router
 from src.api.routers.expedientes import router as expedientes_router
 
 app = FastAPI(title="Camtom KYB API")
 app.include_router(admin.router)
 app.include_router(expedientes_router, prefix="/expedientes", tags=["expedientes"])
+app.include_router(documentos_router)
 
 app.add_middleware(
     CORSMiddleware,
