@@ -3,14 +3,10 @@ import { api } from "@/lib/api-client";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { FactorDetailCard } from "@/components/FactorDetailCard";
 import { StepperHeader } from "@/components/StepperHeader";
+import { ScoreBreakdown } from "@/components/ScoreBreakdown";
+import { DecisionContext } from "@/components/DecisionContext";
+import { ActionCard } from "@/components/ActionCard";
 import { EvaluateButton } from "./EvaluateButton";
-
-const ACCION_CATEGORY_ICON: Record<string, string> = {
-  sat: "🚫",
-  discrepancia: "⚠️",
-  completitud: "📄",
-  otro: "›",
-};
 
 const FACTOR_LABELS: Record<string, string> = {
   sat_69b_definitivo: "RFC en EFOS definitivos (Art. 69-B)",
@@ -124,7 +120,7 @@ export default async function ReportePage({
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8">
-      <StepperHeader currentStep={4} />
+      <StepperHeader currentStep={4} expedienteId={id} />
 
       {/* Breadcrumb */}
       <div className="mb-6">
@@ -149,6 +145,27 @@ export default async function ReportePage({
         )}
       </div>
 
+      {/* Score breakdown by category */}
+      {evaluation && factoresConRiesgo.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 mb-6">
+          <ScoreBreakdown
+            factores={factoresDetail}
+            scoreTotal={evaluation.score_total}
+          />
+        </div>
+      )}
+
+      {/* Decision context */}
+      {evaluation && (
+        <div className="mb-6">
+          <DecisionContext
+            decision={evaluation.decision}
+            scoreTotal={evaluation.score_total}
+            hasCriticalBlock={factoresDetail.some((f) => f.is_critical_block)}
+          />
+        </div>
+      )}
+
       {/* Risk factors */}
       {factoresConRiesgo.length > 0 && (
         <section className="mb-6">
@@ -166,33 +183,18 @@ export default async function ReportePage({
       {/* Acciones sugeridas */}
       {evaluation?.acciones_sugeridas && evaluation.acciones_sugeridas.length > 0 && (
         <section className="mb-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-              Acciones requeridas ({evaluation.acciones_sugeridas.length})
-            </h2>
-            <ul className="space-y-4">
-              {evaluation.acciones_sugeridas.map((accion, i) => {
-                const relatedFactor = factoresConRiesgo.find((f) =>
-                  accion.toLowerCase().includes(f.factor_code.split("_")[0])
-                );
-                const icon = relatedFactor
-                  ? ACCION_CATEGORY_ICON[relatedFactor.category]
-                  : "›";
-                return (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 mt-0.5 text-base">{icon}</span>
-                    <div className="space-y-1">
-                      <p className="text-sm">{accion}</p>
-                      {relatedFactor?.legal_ref && (
-                        <p className="text-xs text-muted-foreground">
-                          § {relatedFactor.legal_ref.split("—")[0].trim()}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Acciones requeridas ({evaluation.acciones_sugeridas.length})
+          </h2>
+          <div className="space-y-3">
+            {evaluation.acciones_sugeridas.map((accion, i) => {
+              const relatedFactor = factoresConRiesgo.find((f) =>
+                accion.toLowerCase().includes(f.factor_code.split("_")[0])
+              ) ?? factoresConRiesgo[i] ?? factoresConRiesgo[0];
+              return (
+                <ActionCard key={i} accion={accion} relatedFactor={relatedFactor} index={i} />
+              );
+            })}
           </div>
         </section>
       )}

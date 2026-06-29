@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { api, type Expediente } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
+import { ChevronRight } from "lucide-react";
 
 const DECISION_BADGE: Record<string, { label: string; className: string }> = {
   safe: { label: "Safe", className: "bg-success text-background" },
@@ -72,7 +73,7 @@ async function ExpedientesContent() {
                   >
                     <td className="px-4 py-3 font-medium">
                       <Link
-                        href={`/expedientes/${e.id}/reporte`}
+                        href={e.decision ? `/expedientes/${e.id}/reporte` : `/expedientes/${e.id}`}
                         className="hover:text-primary transition-colors"
                       >
                         {e.razon_social}
@@ -92,11 +93,20 @@ async function ExpedientesContent() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-sm">
-                      {e.score_total !== null ? (
-                        <span className="text-primary font-bold">{e.score_total} pts</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <div className="flex items-center justify-end gap-3">
+                        {e.score_total !== null ? (
+                          <span className="text-primary font-bold">{e.score_total} pts</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        <Link
+                          href={e.decision ? `/expedientes/${e.id}/reporte` : `/expedientes/${e.id}`}
+                          className="text-muted-foreground hover:text-primary transition-colors"
+                          title={e.decision ? "Ver reporte" : "Cargar documentos"}
+                        >
+                          <ChevronRight className="size-4" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
