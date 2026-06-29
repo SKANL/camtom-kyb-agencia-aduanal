@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { api } from "@/lib/api-client";
+import { api, type ConsultaSat } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SmartDropZone } from "@/components/SmartDropZone";
 import { StepperHeader } from "@/components/StepperHeader";
+import { ExpedienteActions } from "@/components/ExpedienteActions";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   csf: "Constancia de Situación Fiscal",
@@ -30,12 +31,6 @@ const LIST_TYPE_LABELS: Record<string, string> = {
   art_69b_bis: "Art. 69-B Bis CFF — Pérdidas",
 };
 
-const RESULTADO_BADGE: Record<string, { label: string; className: string }> = {
-  sin_coincidencia: { label: "Sin coincidencia", className: "bg-success/15 text-success" },
-  coincidencia: { label: "Coincidencia", className: "bg-destructive/15 text-destructive" },
-  formato_invalido: { label: "RFC inválido", className: "bg-warning/15 text-warning" },
-};
-
 export default async function ExpedienteDetailPage({
   params,
 }: {
@@ -45,7 +40,7 @@ export default async function ExpedienteDetailPage({
 
   let expediente = null;
   let documentos: Awaited<ReturnType<typeof api.listDocumentos>> = [];
-  let consultasSat: unknown[] = [];
+  let consultasSat: ConsultaSat[] = [];
 
   try {
     [expediente, documentos, consultasSat] = await Promise.all([
@@ -86,12 +81,15 @@ export default async function ExpedienteDetailPage({
             <h1 className="text-2xl font-bold">{expediente.razon_social}</h1>
             <p className="text-muted-foreground font-mono text-sm">{expediente.rfc}</p>
           </div>
-          <Link
-            href={`/expedientes/${id}/reporte`}
-            className="shrink-0 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/80 transition-all"
-          >
-            Ver reporte KYB →
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <ExpedienteActions expediente={expediente} redirectOnDelete={true} />
+            <Link
+              href={`/expedientes/${id}/reporte`}
+              className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/80 transition-all"
+            >
+              Ver reporte KYB →
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -182,7 +180,7 @@ export default async function ExpedienteDetailPage({
       <Tabs defaultValue="audit">
         <TabsList>
           <TabsTrigger value="documentos">Documentos ({documentos.length})</TabsTrigger>
-          <TabsTrigger value="audit">Audit log SAT ({consultasSat.length})</TabsTrigger>
+          <TabsTrigger value="audit">Consultas SAT ({consultasSat.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="documentos" className="mt-4">
@@ -205,7 +203,9 @@ export default async function ExpedienteDetailPage({
                     return (
                       <tr key={doc.id} className="border-t border-border">
                         <td className="px-4 py-3 text-xs">{DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type}</td>
-                        <td className="px-4 py-3 capitalize text-muted-foreground text-xs">{doc.entry_method}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs capitalize">
+                          {doc.entry_method === "uploaded" ? "Subido" : "Manual"}
+                        </td>
                         <td className="px-4 py-3">
                           <Badge className={`text-xs ${statusInfo.className}`}>{statusInfo.label}</Badge>
                         </td>
@@ -226,8 +226,8 @@ export default async function ExpedienteDetailPage({
         </TabsContent>
 
         <TabsContent value="audit" className="mt-4">
-            <p className="text-xs text-muted-foreground mb-3">
-              Consultas realizadas contra listas fiscales del SAT (Art. 69, 69-B, 69-B Bis)
+          <p className="text-xs text-muted-foreground mb-3">
+            Consultas realizadas contra listas fiscales del SAT (Art. 69, 69-B, 69-B Bis)
           </p>
           {consultasSat.length === 0 ? (
             <p className="text-muted-foreground text-sm py-8 text-center">
@@ -245,38 +245,40 @@ export default async function ExpedienteDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {(
-                    consultasSat as Array<{
-                      id: string;
-                      list_type?: string;
-                      rfc?: string;
-                      resultado?: string;
-                      created_at?: string;
-                    }>
-                  ).map((c) => (
-                    <tr key={c.id} className="border-t border-border">
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {LIST_TYPE_LABELS[(c as any).list_type] ?? (c as any).list_type ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-xs">{(c as any).rfc ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        {(() => {
-                          const r = (c as any).resultado ?? "";
-                          const badge = RESULTADO_BADGE[r];
-                          return badge ? (
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-                              {badge.label}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">{r || "—"}</span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {c.created_at ? new Date(c.created_at).toLocaleString("es-MX") : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {consultasSat.map((c) => {
+                    const found = c.found;
+                    const substate = c.match_substate;
+                    let badgeClass = "bg-success/15 text-success";
+                    let badgeLabel = "Sin coincidencia";
+                    if (found && substate === "definitivo") {
+                      badgeClass = "bg-destructive text-background";
+                      badgeLabel = "EFOS Definitivo";
+                    } else if (found && substate === "presunto") {
+                      badgeClass = "bg-destructive/15 text-destructive";
+                      badgeLabel = "EFOS Presunto";
+                    } else if (found) {
+                      badgeClass = "bg-warning/15 text-warning";
+                      badgeLabel = `Encontrado${substate ? ` — ${substate}` : ""}`;
+                    }
+                    return (
+                      <tr key={c.id} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          {LIST_TYPE_LABELS[c.list_type] ?? c.list_type ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 font-mono">{c.rfc_consultado ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+                            {badgeLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {c.consulted_at
+                            ? new Date(c.consulted_at).toLocaleString("es-MX")
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

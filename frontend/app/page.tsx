@@ -3,11 +3,20 @@ import { Suspense } from "react";
 import { api, type Expediente } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
+import { ExpedienteActions } from "@/components/ExpedienteActions";
 
 const DECISION_BADGE: Record<string, { label: string; className: string }> = {
-  safe: { label: "Safe", className: "bg-success text-background" },
-  review_required: { label: "Review required", className: "bg-warning text-background" },
-  high_risk: { label: "High risk", className: "bg-destructive text-background" },
+  safe: { label: "Aprobado", className: "bg-success text-background" },
+  review_required: { label: "Revisar", className: "bg-warning text-background" },
+  high_risk: { label: "Alto riesgo", className: "bg-destructive text-background" },
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Pendiente",
+  processing: "Procesando",
+  completed: "Completado",
+  needs_update: "Requiere actualización",
+  review_required: "En revisión",
 };
 
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -61,11 +70,13 @@ async function ExpedientesContent() {
                 <th className="text-left px-4 py-3 text-muted-foreground font-medium">Estado</th>
                 <th className="text-left px-4 py-3 text-muted-foreground font-medium">Decisión</th>
                 <th className="text-right px-4 py-3 text-muted-foreground font-medium">Score</th>
+                <th className="text-right px-4 py-3 text-muted-foreground font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {expedientes.map((e) => {
                 const badge = e.decision ? DECISION_BADGE[e.decision] : null;
+                const statusLabel = STATUS_LABEL[e.status] ?? e.status;
                 return (
                   <tr
                     key={e.id}
@@ -82,8 +93,8 @@ async function ExpedientesContent() {
                     <td className="px-4 py-3 font-mono text-muted-foreground text-xs">
                       {e.rfc}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground capitalize text-xs">
-                      {e.status}
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {statusLabel}
                     </td>
                     <td className="px-4 py-3">
                       {badge ? (
@@ -107,6 +118,9 @@ async function ExpedientesContent() {
                           <ChevronRight className="size-4" />
                         </Link>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <ExpedienteActions expediente={e} redirectOnDelete={false} />
                     </td>
                   </tr>
                 );

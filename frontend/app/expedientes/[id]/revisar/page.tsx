@@ -6,7 +6,7 @@ import { api, type Documento } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { StepperHeader } from "@/components/StepperHeader";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -26,13 +26,135 @@ const FIELD_LABELS: Record<string, string> = {
   declara_no_69b_49bis: "Declara no estar en Art. 69-B / 49 Bis",
 };
 
+type Socio = { nombre: string; rfc: string; porcentaje: string };
+
+function parseSocios(raw: string): Socio[] {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s: unknown) => {
+      const obj = s as Record<string, unknown>;
+      return {
+        nombre: String(obj.nombre ?? ""),
+        rfc: String(obj.rfc ?? ""),
+        porcentaje: String(obj.porcentaje ?? ""),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function SociosEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [socios, setSocios] = useState<Socio[]>(() => parseSocios(value));
+
+  function update(index: number, field: keyof Socio, val: string) {
+    const next = socios.map((s, i) => (i === index ? { ...s, [field]: val } : s));
+    setSocios(next);
+    onChange(JSON.stringify(next.map((s) => ({ ...s, porcentaje: Number(s.porcentaje) || 0 }))));
+  }
+
+  function add() {
+    const next = [...socios, { nombre: "", rfc: "", porcentaje: "" }];
+    setSocios(next);
+    onChange(JSON.stringify(next.map((s) => ({ ...s, porcentaje: Number(s.porcentaje) || 0 }))));
+  }
+
+  function remove(index: number) {
+    const next = socios.filter((_, i) => i !== index);
+    setSocios(next);
+    onChange(JSON.stringify(next.map((s) => ({ ...s, porcentaje: Number(s.porcentaje) || 0 }))));
+  }
+
+  return (
+    <div className="space-y-3">
+      {socios.map((s, i) => (
+        <div key={i} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Socio {i + 1}</span>
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              aria-label="Eliminar socio"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <label className="text-xs text-muted-foreground block mb-0.5">Nombre</label>
+              <input
+                value={s.nombre}
+                onChange={(e) => update(i, "nombre", e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Nombre completo"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-0.5">RFC</label>
+              <input
+                value={s.rfc}
+                onChange={(e) => update(i, "rfc", e.target.value.toUpperCase())}
+                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="RFC"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-0.5">% participación</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={s.porcentaje}
+                onChange={(e) => update(i, "porcentaje", e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+      >
+        <Plus className="size-3.5" />
+        Agregar socio
+      </button>
+    </div>
+  );
+}
+
 function FieldDisplay({ campo, valor }: { campo: string; valor: unknown }) {
-  if (campo === "socios" && Array.isArray(valor)) {
+  if (campo === "socios" && Array.isArray(valor) && valor.length > 0) {
     return (
-      <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 font-mono whitespace-pre-wrap">
-        {JSON.stringify(valor, null, 2)}
+      <div className="space-y-2">
+        {valor.map((s: unknown, i: number) => {
+          const obj = s as Record<string, unknown>;
+          return (
+            <div key={i} className="text-xs rounded-lg border border-border bg-muted/30 p-2.5 space-y-0.5">
+              <p className="font-medium">{String(obj.nombre ?? "—")}</p>
+              <p className="font-mono text-muted-foreground">{String(obj.rfc ?? "—")}</p>
+              {obj.porcentaje != null && (
+                <p className="text-muted-foreground">{String(obj.porcentaje)}%</p>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
+  }
+  if (campo === "socios") {
+    return <span className="text-muted-foreground text-xs">Sin socios registrados</span>;
   }
   if (typeof valor === "boolean") {
     return (
@@ -76,7 +198,7 @@ export default function RevisarPage({
           const stringified: Record<string, string> = {};
           for (const [k, v] of Object.entries(d.fields)) {
             if (k === "socios" && Array.isArray(v)) {
-              stringified[k] = JSON.stringify(v, null, 2);
+              stringified[k] = JSON.stringify(v);
             } else if (typeof v === "boolean") {
               stringified[k] = String(v);
             } else {
@@ -287,6 +409,19 @@ export default function RevisarPage({
                     </div>
                   );
                 }
+                if (campo === "socios") {
+                  return (
+                    <div key={campo}>
+                      <label className="text-xs text-muted-foreground block mb-2">
+                        {FIELD_LABELS[campo] ?? campo}
+                      </label>
+                      <SociosEditor
+                        value={valor}
+                        onChange={(v) => setFields({ ...fields, [campo]: v })}
+                      />
+                    </div>
+                  );
+                }
                 return (
                   <div key={campo}>
                     <label className="text-xs text-muted-foreground block mb-1">
@@ -297,7 +432,7 @@ export default function RevisarPage({
                       onChange={(e) =>
                         setFields({ ...fields, [campo]: e.target.value })
                       }
-                      rows={campo === "socios" ? 4 : 2}
+                      rows={2}
                       className="text-sm font-mono resize-none"
                     />
                   </div>
