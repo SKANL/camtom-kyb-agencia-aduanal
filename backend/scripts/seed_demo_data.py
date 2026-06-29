@@ -16,7 +16,6 @@ Optional: clear existing demo data first with --clean flag:
 import os
 import sys
 import uuid
-from datetime import date, datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,11 +26,6 @@ from supabase import create_client
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-
-TODAY = date.today().isoformat()
-NOW = datetime.now(timezone.utc).isoformat()
-
-DEMO_TAG = "demo_seed_v1"
 
 
 def make_id() -> str:
