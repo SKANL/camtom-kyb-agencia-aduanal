@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/header";
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "Camtom KYB",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Header />
-        <div className="flex-1">{children}</div>
+        <Providers>
+          <Header />
+          <div className="flex-1">{children}</div>
+        </Providers>
       </body>
     </html>
   );
