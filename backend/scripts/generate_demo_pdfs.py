@@ -1,320 +1,255 @@
-"""
-Generate synthetic, text-selectable PDF documents for the 3 demo expedientes.
-
-Output: backend/scripts/demo_pdfs/
-  expediente_1_safe/
-    csf.pdf, acta_constitutiva.pdf, comprobante_domicilio.pdf,
-    identificacion_rep_legal.pdf, encargo_conferido.pdf, manifestacion_protesta.pdf
-  expediente_2_review_required/  (same set, with intentional discrepancies)
-  expediente_3_high_risk/        (minimal - blocking is via SAT list, not docs)
-
-Usage:
-  cd backend && uv run python scripts/generate_demo_pdfs.py
-
-Then upload each PDF via the UI (Task 5.5) or via the API.
-
-Note: dates use the current month/year so freshness checks pass at demo time.
-"""
-
-from __future__ import annotations
+"""Generate 3 text-selectable synthetic PDFs for KYB demo scenarios."""
 
 import os
-from datetime import date, timedelta
 from pathlib import Path
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
 
-from fpdf import FPDF
-
-
-def _pdf(lines: list[str], output_path: Path) -> None:
-    """Write a minimal A4 PDF with selectable text. No images."""
-    from fpdf.enums import XPos, YPos
-
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    pdf.set_margins(15, 15, 15)
-    pdf.set_font("Helvetica", size=11)
-    for line in lines:
-        if line.startswith("# "):
-            pdf.set_font("Helvetica", style="B", size=14)
-            pdf.cell(0, 10, line[2:], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.set_font("Helvetica", size=11)
-        elif line.startswith("## "):
-            pdf.set_font("Helvetica", style="B", size=12)
-            pdf.cell(0, 8, line[3:], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.set_font("Helvetica", size=11)
-        elif line == "---":
-            pdf.ln(3)
-            pdf.set_draw_color(180, 180, 180)
-            pdf.line(15, pdf.get_y(), 195, pdf.get_y())
-            pdf.ln(3)
-        else:
-            pdf.multi_cell(0, 6, line or " ", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    pdf.output(str(output_path))
+OUTPUT_DIR = Path(__file__).parent / "demo_pdfs"
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-today = date.today()
-current_month = today.strftime("%m/%Y")
-recent_date = (today - timedelta(days=10)).strftime("%d/%m/%Y")
-old_date = (today - timedelta(days=120)).strftime("%d/%m/%Y")  # >90 días - triggers review_required
+def make_csf(path: Path, rfc: str, razon_social: str, domicilio: str, rep_legal: str):
+    """Constancia de Situación Fiscal (simplified SAT format)."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    w, h = letter
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(w / 2, h - 2 * cm, "CONSTANCIA DE SITUACIÓN FISCAL")
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(w / 2, h - 2.8 * cm, "Servicio de Administración Tributaria")
+    c.line(2 * cm, h - 3.2 * cm, w - 2 * cm, h - 3.2 * cm)
 
-
-# ─── Expediente 1: SAFE ──────────────────────────────────────────────────────
-E1_RFC = "EKU9003173C9"
-E1_RAZON = "Escuela Kemper Urgate SA de CV"
-E1_DOMICILIO = "Av. Insurgentes Sur 123, Col. Roma, CDMX"
-E1_REP = "Juan Pérez García"
-
-EXPEDIENTE_1: dict[str, list[str]] = {
-    "csf": [
-        "# Constancia de Situación Fiscal",
-        "Servicio de Administración Tributaria",
-        "---",
-        f"RFC: {E1_RFC}",
-        f"Razón Social: {E1_RAZON}",
-        f"Domicilio Fiscal: {E1_DOMICILIO}",
-        f"Fecha de emisión: {recent_date}",
-        "Régimen Fiscal: 601 - General de Ley Personas Morales",
-        "Situación: Activo",
-        "---",
-        "Este documento acredita la situación fiscal ante el SAT.",
-    ],
-    "acta_constitutiva": [
-        "# Acta Constitutiva",
-        f"Empresa: {E1_RAZON}",
-        f"RFC: {E1_RFC}",
-        "---",
-        "Instrumento notarial número 12,345 de fecha 15/03/2010.",
-        "Notario Público núm. 42, Lic. Roberto Solís, CDMX.",
-        "Objeto social: Servicios educativos.",
-        "Capital social: $500,000.00 MXN.",
-        "---",
-        "Socios fundadores:",
-        f"  - {E1_REP} (51%)",
-        "  - Ana García Ramírez (49%)",
-    ],
-    "comprobante_domicilio": [
-        "# Comprobante de Domicilio",
-        "Comisión Federal de Electricidad",
-        "---",
-        f"Titular: {E1_RAZON}",
-        f"Domicilio: {E1_DOMICILIO}",
-        f"Fecha de emisión: {recent_date}",
-        "Período facturado: bimestre vigente",
-        "Número de cuenta: 1234-5678-9012",
-        "Monto: $1,250.00 MXN",
-        "---",
-        "Comprobante válido como identificación de domicilio fiscal.",
-    ],
-    "identificacion_rep_legal": [
-        "# Identificación Oficial - Representante Legal",
-        "Instituto Nacional Electoral",
-        "---",
-        f"Nombre: {E1_REP}",
-        "CURP: PEGJ800101HDFRZN08",
-        f"Vigencia: {(today.replace(year=today.year + 3)).strftime('%d/%m/%Y')}",
-        "Clave de elector: PEREZU80010112H000",
-        "Sección: 1234 - Distrito Federal 05",
-        "---",
-        "Documento oficial con validez en todo el territorio nacional.",
-    ],
-    "encargo_conferido": [
-        "# Encargo Conferido",
-        "Agente Aduanal - Autorización de Representación",
-        "---",
-        "Importador/Exportador:",
-        f"  Razón Social: {E1_RAZON}",
-        f"  RFC: {E1_RFC}",
-        "---",
-        "Agente Aduanal autorizado:",
-        "  RFC Agente: LOAM750312AB3",
-        "  Patente: 3456",
-        "Alcance: Importacion y exportacion - todas las fracciones arancelarias.",
-        f"Vigencia: {(today.replace(year=today.year + 1)).strftime('%d/%m/%Y')}",
-        "---",
-        f"Firma del Representante Legal: {E1_REP}",
-        f"Fecha de firma: {recent_date}",
-    ],
-    "manifestacion_protesta": [
-        "# Manifestación bajo Protesta de Decir Verdad",
-        "Regla 1.4.14 RGCE 2026",
-        "---",
-        f"Empresa: {E1_RAZON}",
-        f"RFC: {E1_RFC}",
-        f"Representante Legal: {E1_REP}",
-        "---",
-        "DECLARO BAJO PROTESTA DE DECIR VERDAD que la empresa que represento:",
-        "",
-        "1. NO se encuentra en el listado del Artículo 69-B del CFF (empresas que",
-        "   facturan operaciones simuladas - EFOS definitivos).",
-        "2. NO se encuentra en el Artículo 49 Bis (contrabando técnico).",
-        "3. Toda la información proporcionada es verídica y comprobable.",
-        "---",
-        f"Lugar y fecha: Ciudad de México, {recent_date}",
-        f"Firma: {E1_REP}",
-    ],
-}
-
-# ─── Expediente 2: REVIEW REQUIRED ───────────────────────────────────────────
-# Discrepancias: razón social y domicilio ligeramente distintos + comprobante >90 días
-E2_RFC = "COX010101AB1"
-E2_RAZON_FORMULARIO = "Corporativo X"           # En el formulario
-E2_RAZON_CSF = "Corporativo X SA de CV"         # En la CSF - discrepancia
-E2_DOMICILIO_FORM = "Avenida Insurgentes Sur Num 123, Colonia Roma"
-E2_DOMICILIO_CSF = "Av. Insurgentes Sur 123, Col. Roma Norte, CDMX"  # distinto
-E2_REP = "María López"
-
-EXPEDIENTE_2: dict[str, list[str]] = {
-    "csf": [
-        "# Constancia de Situación Fiscal",
-        "Servicio de Administración Tributaria",
-        "---",
-        f"RFC: {E2_RFC}",
-        f"Razón Social: {E2_RAZON_CSF}",          # "SA de CV" que falta en el formulario
-        f"Domicilio Fiscal: {E2_DOMICILIO_CSF}",
-        f"Fecha de emisión: {recent_date}",
-        "Régimen Fiscal: 601 - General de Ley Personas Morales",
-        "Situación: Activo",
-        "---",
-        "NOTA: La razón social exacta es 'Corporativo X SA de CV'.",
-        "La omisión del tipo societario en solicitudes es causa de revisión.",
-    ],
-    "acta_constitutiva": [
-        "# Acta Constitutiva",
-        f"Empresa: {E2_RAZON_CSF}",
-        f"RFC: {E2_RFC}",
-        "---",
-        "Instrumento notarial número 7,890 de fecha 20/06/2015.",
-        "Notario Público núm. 15, Lic. Carmen Vidal, CDMX.",
-        "Objeto social: Consultoría empresarial.",
-        "Capital social: $1,000,000.00 MXN.",
-        "---",
-        "Socios fundadores:",
-        f"  - {E2_REP} (60%)",
-        "  - Roberto Mendoza Cruz (40%)",
-    ],
-    "comprobante_domicilio": [
-        "# Comprobante de Domicilio",
-        "Telmex - Servicios de Telecomunicaciones",
-        "---",
-        f"Titular: {E2_RAZON_CSF}",
-        f"Domicilio: {E2_DOMICILIO_FORM}",          # domicilio distinto al de CSF
-        f"Fecha de emisión: {old_date}",             # >90 días - triggers review
-        "Período facturado: bimestre anterior",
-        "Número de cuenta: 9876-5432-1098",
-        "Monto: $890.00 MXN",
-        "---",
-        "ADVERTENCIA: Este comprobante puede estar próximo a vencer.",
-        "Se recomienda actualizar con uno reciente.",
-    ],
-    "identificacion_rep_legal": [
-        "# Identificación Oficial - Representante Legal",
-        "Instituto Nacional Electoral",
-        "---",
-        f"Nombre: {E2_REP}",
-        "CURP: LOCM850615MDFPZR05",
-        f"Vigencia: {(today.replace(year=today.year + 2)).strftime('%d/%m/%Y')}",
-        "Clave de elector: LOPEZM85061512H000",
-        "Sección: 5678 - Distrito Federal 09",
-    ],
-    "encargo_conferido": [
-        "# Encargo Conferido",
-        "Agente Aduanal - Autorización de Representación",
-        "---",
-        "Importador/Exportador:",
-        f"  Razón Social: {E2_RAZON_CSF}",
-        f"  RFC: {E2_RFC}",
-        "---",
-        "Agente Aduanal autorizado:",
-        "  RFC Agente: GAMA820930CD5",
-        "  Patente: 1122",
-        "Alcance: Importación - capítulos 1-24 del arancel.",
-        f"Vigencia: {(today.replace(year=today.year + 1)).strftime('%d/%m/%Y')}",
-        "---",
-        f"Firma del Representante Legal: {E2_REP}",
-        f"Fecha de firma: {recent_date}",
-    ],
-    "manifestacion_protesta": [
-        "# Manifestación bajo Protesta de Decir Verdad",
-        "Regla 1.4.14 RGCE 2026",
-        "---",
-        f"Empresa: {E2_RAZON_CSF}",
-        f"RFC: {E2_RFC}",
-        f"Representante Legal: {E2_REP}",
-        "---",
-        "DECLARO BAJO PROTESTA DE DECIR VERDAD que la empresa que represento",
-        "no se encuentra en los listados del Artículo 69-B ni 49 Bis del CFF,",
-        "y que toda la información es veraz y verificable.",
-        "---",
-        f"Lugar y fecha: Ciudad de México, {recent_date}",
-        f"Firma: {E2_REP}",
-    ],
-}
-
-# ─── Expediente 3: HIGH RISK ──────────────────────────────────────────────────
-# RFC real en listado 69-B Definitivos - el bloqueo es por listas SAT, no docs
-# RFC se lee del entorno para no hardcodear uno que podría caducar del listado.
-E3_RFC = os.environ.get("DEMO_RFC_HIGH_RISK", "PLACEHOLDER_RFC_69B")
-E3_RAZON = "Empresa en Lista Negra SA de CV"
-E3_REP = "Carlos Sánchez"
-
-EXPEDIENTE_3: dict[str, list[str]] = {
-    "csf": [
-        "# Constancia de Situación Fiscal",
-        "Servicio de Administración Tributaria",
-        "---",
-        f"RFC: {E3_RFC}",
-        f"Razón Social: {E3_RAZON}",
-        "Domicilio Fiscal: Calle Reforma 456, Col. Centro, CDMX",
-        f"Fecha de emisión: {recent_date}",
-        "Régimen Fiscal: 601 - General de Ley Personas Morales",
-        "Situación: Activo",
-        "---",
-        "NOTA: Este RFC aparece en el listado Art. 69-B Definitivos del SAT.",
-        "La evaluación KYB resultará en high_risk.",
-    ],
-    "manifestacion_protesta": [
-        "# Manifestación bajo Protesta de Decir Verdad",
-        "Regla 1.4.14 RGCE 2026",
-        "---",
-        f"Empresa: {E3_RAZON}",
-        f"RFC: {E3_RFC}",
-        f"Representante Legal: {E3_REP}",
-        "---",
-        "DECLARO BAJO PROTESTA DE DECIR VERDAD que la empresa que represento",
-        "no se encuentra en los listados del Artículo 69-B ni 49 Bis del CFF.",
-        "---",
-        f"Lugar y fecha: Ciudad de México, {recent_date}",
-        f"Firma: {E3_REP}",
-    ],
-}
-
-
-def main():
-    base = Path(__file__).parent / "demo_pdfs"
-
-    expedientes = [
-        ("expediente_1_safe", EXPEDIENTE_1),
-        ("expediente_2_review_required", EXPEDIENTE_2),
-        ("expediente_3_high_risk", EXPEDIENTE_3),
+    fields = [
+        ("RFC:", rfc),
+        ("Razón Social:", razon_social),
+        ("Régimen Fiscal:", "601 - General de Ley Personas Morales"),
+        ("Domicilio Fiscal:", domicilio),
+        ("Representante Legal:", rep_legal),
+        ("Fecha de emisión:", "2026-06-01"),
+        ("Estatus en el RFC:", "ACTIVO"),
     ]
+    y = h - 4.5 * cm
+    for label, value in fields:
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(2 * cm, y, label)
+        c.setFont("Helvetica", 9)
+        c.drawString(7 * cm, y, value)
+        y -= 0.8 * cm
 
-    for folder, docs in expedientes:
-        for doc_type, lines in docs.items():
-            out = base / folder / f"{doc_type}.pdf"
-            _pdf(lines, out)
-            print(f"  Generated: {out}")
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(w / 2, 2 * cm, "Documento generado para fines de demostración — KYB Agencia Aduanal")
+    c.save()
 
-    print(f"\nPDFs written to: {base}")
-    print("\nNext: upload each PDF via the UI (or POST /documentos) for its expediente.")
-    if E3_RFC == "PLACEHOLDER_RFC_69B":
-        print(
-            "\nWARNING: DEMO_RFC_HIGH_RISK not set. "
-            "Set it to a real RFC from the 69-B definitivos list before uploading Expediente 3 docs.\n"
-            "  e.g.: DEMO_RFC_HIGH_RISK=XYZABC123456 uv run python scripts/generate_demo_pdfs.py"
-        )
+
+def make_acta(path: Path, rfc: str, razon_social: str, rep_legal: str, socios: list[str]):
+    c = canvas.Canvas(str(path), pagesize=letter)
+    w, h = letter
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(w / 2, h - 2 * cm, "ACTA CONSTITUTIVA")
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(w / 2, h - 2.7 * cm, "Sociedad Anónima de Capital Variable")
+
+    c.setFont("Helvetica", 9)
+    y = h - 4 * cm
+    lines = [
+        f"En la Ciudad de México, siendo las 10:00 horas del 1 de enero de 2015, comparecen:",
+        f"Razón Social: {razon_social}",
+        f"RFC: {rfc}",
+        f"Representante Legal: {rep_legal}",
+        "",
+        "SOCIOS / ACCIONISTAS:",
+    ]
+    for line in lines:
+        c.drawString(2 * cm, y, line)
+        y -= 0.65 * cm
+    for socio in socios:
+        c.drawString(2.5 * cm, y, f"• {socio}")
+        y -= 0.65 * cm
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(w / 2, 2 * cm, "Documento generado para fines de demostración — KYB Agencia Aduanal")
+    c.save()
+
+
+def make_comprobante_domicilio(path: Path, razon_social: str, domicilio: str, fecha: str):
+    c = canvas.Canvas(str(path), pagesize=letter)
+    w, h = letter
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(w / 2, h - 2 * cm, "COMPROBANTE DE DOMICILIO")
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(w / 2, h - 2.8 * cm, "CFE — Compañía de Luz y Fuerza del Centro")
+
+    fields = [
+        ("Nombre / Razón Social:", razon_social),
+        ("Domicilio:", domicilio),
+        ("Fecha de emisión:", fecha),
+        ("Periodo de servicio:", "Mayo 2026"),
+        ("No. de cuenta:", "00123456789"),
+    ]
+    y = h - 4.5 * cm
+    for label, value in fields:
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(2 * cm, y, label)
+        c.setFont("Helvetica", 9)
+        c.drawString(8 * cm, y, value)
+        y -= 0.8 * cm
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(w / 2, 2 * cm, "Documento generado para fines de demostración — KYB Agencia Aduanal")
+    c.save()
+
+
+def make_manifestacion(path: Path, razon_social: str, rfc: str, rep_legal: str, declara: bool):
+    c = canvas.Canvas(str(path), pagesize=letter)
+    w, h = letter
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(w / 2, h - 2 * cm, "MANIFESTACIÓN BAJO PROTESTA DE DECIR VERDAD")
+
+    c.setFont("Helvetica", 9)
+    y = h - 3.5 * cm
+    texto = (
+        f"Yo, {rep_legal}, en mi carácter de representante legal de {razon_social} "
+        f"(RFC: {rfc}), manifiesto bajo protesta de decir verdad que la empresa que represento:"
+    )
+    # Word-wrap basic
+    words = texto.split()
+    line = ""
+    for word in words:
+        test = f"{line} {word}".strip()
+        if c.stringWidth(test, "Helvetica", 9) < (w - 4 * cm):
+            line = test
+        else:
+            c.drawString(2 * cm, y, line)
+            y -= 0.55 * cm
+            line = word
+    if line:
+        c.drawString(2 * cm, y, line)
+        y -= 0.8 * cm
+
+    if declara:
+        clausulas = [
+            "1. No se encuentra en los supuestos del Art. 69-B del CFF (EFOS).",
+            "2. No ha transmitido indebidamente pérdidas fiscales (Art. 69-B Bis CFF).",
+            "3. No realiza operaciones de contrabando técnico (Art. 49 Bis CFF).",
+            "4. Toda la información proporcionada es verídica y verificable.",
+        ]
+    else:
+        clausulas = [
+            "1. La empresa cumple con sus obligaciones fiscales.",
+            "2. Toda la información proporcionada es verídica.",
+        ]
+
+    for clausula in clausulas:
+        c.drawString(2 * cm, y, clausula)
+        y -= 0.65 * cm
+
+    y -= 0.5 * cm
+    c.drawString(2 * cm, y, f"Firma: ________________________    Fecha: 2026-06-15")
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(w / 2, 2 * cm, "Documento generado para fines de demostración — KYB Agencia Aduanal")
+    c.save()
+
+
+def generate():
+    # ── Scenario 1: CLEAN — EKU9003173C9 ──────────────────────────────────────
+    clean_dir = OUTPUT_DIR / "escenario_1_limpio"
+    clean_dir.mkdir(exist_ok=True)
+    make_csf(
+        clean_dir / "csf.pdf",
+        rfc="EKU9003173C9",
+        razon_social="Escuela Kemper Urgate SA de CV",
+        domicilio="Av. Insurgentes Sur 123, Col. Roma Norte, CDMX, CP 06700",
+        rep_legal="Juan Pérez García",
+    )
+    make_acta(
+        clean_dir / "acta_constitutiva.pdf",
+        rfc="EKU9003173C9",
+        razon_social="Escuela Kemper Urgate SA de CV",
+        rep_legal="Juan Pérez García",
+        socios=["Juan Pérez García (60%)", "María López Ramírez (40%)"],
+    )
+    make_comprobante_domicilio(
+        clean_dir / "comprobante_domicilio.pdf",
+        razon_social="Escuela Kemper Urgate SA de CV",
+        domicilio="Av. Insurgentes Sur 123, Col. Roma Norte, CDMX, CP 06700",
+        fecha="2026-06-01",
+    )
+    make_manifestacion(
+        clean_dir / "manifestacion_protesta.pdf",
+        razon_social="Escuela Kemper Urgate SA de CV",
+        rfc="EKU9003173C9",
+        rep_legal="Juan Pérez García",
+        declara=True,
+    )
+
+    # ── Scenario 2: DISCREPANCY — COX010101AB1 ────────────────────────────────
+    disc_dir = OUTPUT_DIR / "escenario_2_discrepancia"
+    disc_dir.mkdir(exist_ok=True)
+    make_csf(
+        disc_dir / "csf.pdf",
+        rfc="COX010101AB1",
+        razon_social="Corporativo X SA de CV",            # canonical name
+        domicilio="Avenida Insurgentes Sur Num 123, Colonia Roma",
+        rep_legal="María López",
+    )
+    make_acta(
+        disc_dir / "acta_constitutiva.pdf",
+        rfc="COX010101AB1",
+        razon_social="Corporativo X, S.A. de C.V.",       # slight variation → disc_razon_social
+        rep_legal="Maria Lopez Hernandez",                 # full name → disc_representante match
+        socios=["María López Hernandez (51%)", "Roberto Sánchez Cruz (49%)"],
+    )
+    make_comprobante_domicilio(
+        disc_dir / "comprobante_domicilio.pdf",
+        razon_social="Corporativo X SA de CV",
+        domicilio="Insurgentes Sur 123, Roma",             # variation → disc_domicilio
+        fecha="2026-06-01",
+    )
+    make_manifestacion(
+        disc_dir / "manifestacion_protesta.pdf",
+        razon_social="Corporativo X SA de CV",
+        rfc="COX010101AB1",
+        rep_legal="María López",
+        declara=True,
+    )
+
+    # ── Scenario 3: HIGH RISK — AAA120730823 (69-B Definitivos) ───────────────
+    risk_dir = OUTPUT_DIR / "escenario_3_alto_riesgo"
+    risk_dir.mkdir(exist_ok=True)
+    make_csf(
+        risk_dir / "csf.pdf",
+        rfc="AAA120730823",
+        razon_social="Empresa en Lista Negra SA de CV",
+        domicilio="Calle Reforma 456, Col. Centro, CDMX, CP 06000",
+        rep_legal="Carlos Sánchez",
+    )
+    make_acta(
+        risk_dir / "acta_constitutiva.pdf",
+        rfc="AAA120730823",
+        razon_social="Empresa en Lista Negra SA de CV",
+        rep_legal="Carlos Sánchez",
+        socios=["Carlos Sánchez (100%)"],
+    )
+    make_comprobante_domicilio(
+        risk_dir / "comprobante_domicilio.pdf",
+        razon_social="Empresa en Lista Negra SA de CV",
+        domicilio="Calle Reforma 456, Col. Centro, CDMX, CP 06000",
+        fecha="2026-06-01",
+    )
+    make_manifestacion(
+        risk_dir / "manifestacion_protesta.pdf",
+        razon_social="Empresa en Lista Negra SA de CV",
+        rfc="AAA120730823",
+        rep_legal="Carlos Sánchez",
+        declara=False,   # missing 69-B/49-Bis clauses → manifestacion_incompleta
+    )
+
+    print("Demo PDFs generated:")
+    for f in sorted(OUTPUT_DIR.rglob("*.pdf")):
+        print(f"  {f.relative_to(OUTPUT_DIR.parent.parent)}")
 
 
 if __name__ == "__main__":
-    main()
+    generate()
