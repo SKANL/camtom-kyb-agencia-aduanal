@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { api, type EvaluationResult, type ConsultaSat } from "@/lib/api-client";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { FactorDetailCard } from "@/components/FactorDetailCard";
@@ -70,6 +71,21 @@ function buildNarrative(
     .join(", ")}. La empresa puede continuar el proceso sujeto a revisión documental adicional por parte del agente aduanal.`;
 }
 
+function NeedsUpdateBanner({ expedienteId }: { expedienteId: string }) {
+  return (
+    <div className="rounded-xl border border-warning/40 bg-warning/5 px-5 py-4 flex items-start gap-3 mb-6">
+      <AlertTriangle className="size-5 text-warning shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-warning">El expediente requiere actualización</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Uno o más documentos han cambiado o vencido desde la última evaluación. Re-evaluá para obtener un resultado actualizado.
+        </p>
+      </div>
+      <EvaluateButton expedienteId={expedienteId} />
+    </div>
+  );
+}
+
 export default async function ReportePage({
   params,
 }: {
@@ -126,6 +142,10 @@ export default async function ReportePage({
         <h1 className="text-2xl font-bold mt-2">Reporte KYB</h1>
         <p className="text-muted-foreground text-sm mt-1 font-mono">{expediente.rfc}</p>
       </div>
+
+      {expediente.status === "needs_update" && (
+        <NeedsUpdateBanner expedienteId={id} />
+      )}
 
       {/* Score hero */}
       <div className="rounded-xl border border-border bg-card p-6 mb-6">
