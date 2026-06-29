@@ -6,6 +6,7 @@ const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
+    cache: "no-store",
     headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
   });
@@ -68,28 +69,38 @@ export type ClassifyResult = {
   suggested_label: string;
 };
 
+export type UploadDocumentoResult = {
+  documento_id: string;
+  extraction_status: string;
+};
+
 export type SatImportRun = {
   id: string;
   list_type: string;
   status: string;
   rows_imported: number | null;
-  started_at: string;
+  started_at: string | null;
   finished_at: string | null;
+};
+
+export type ConsultaSat = {
+  id: string;
+  expediente_id: string;
+  list_type: string;
+  rfc_consultado: string;
+  found: boolean;
+  match_substate: string | null;
+  match_detail: Record<string, unknown> | null;
+  consulted_at: string;
+  import_run_id: string | null;
+  source_url: string | null;
 };
 
 export class DuplicateDocumentoError extends Error {
   constructor(public readonly documentoId: string) {
-    super("Documento de este tipo ya existe en el expediente");
-    this.name = "DuplicateDocumentoError";
+    super("Documento duplicado");
   }
 }
-
-export type UploadDocumentoResult = {
-  documento_id: string;
-  doc_type: string;
-  fields: Record<string, unknown>;
-  extraction_status: string;
-};
 
 export const api = {
   checkHealth: (): Promise<{ status: string }> =>
@@ -108,6 +119,23 @@ export const api = {
     representante_legal?: string;
   }): Promise<Expediente> =>
     request("/expedientes", { method: "POST", body: JSON.stringify(data) }),
+
+  updateExpediente: (
+    id: string,
+    data: {
+      razon_social?: string;
+      rfc?: string;
+      domicilio_fiscal?: string;
+      representante_legal?: string;
+    }
+  ): Promise<Expediente> =>
+    request(`/expedientes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteExpediente: (id: string): Promise<void> =>
+    request(`/expedientes/${id}`, { method: "DELETE" }),
 
   evaluate: (id: string): Promise<EvaluationResult> =>
     request(`/expedientes/${id}/evaluate`, { method: "POST" }),
@@ -192,15 +220,15 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
 
+  listConsultasSat: (expedienteId: string): Promise<ConsultaSat[]> =>
+    request(`/expedientes/${expedienteId}/consultas-sat`),
+
   // Admin
   triggerSatImport: (listType: string): Promise<SatImportRun> =>
     request(`/admin/ingest/${listType}`, { method: "POST" }),
 
   listSatImportRuns: (): Promise<SatImportRun[]> =>
     request("/admin/sat-import-runs"),
-
-  listConsultasSat: (expedienteId: string): Promise<unknown[]> =>
-    request(`/expedientes/${expedienteId}/consultas-sat`),
 };
 
 // Backward compat for existing page.tsx

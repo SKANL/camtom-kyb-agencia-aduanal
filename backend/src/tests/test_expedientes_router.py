@@ -188,3 +188,64 @@ def test_get_consultas_sat_uses_consulted_at(client, fake_supabase):
         mock_query.order.assert_called_once_with("consulted_at", desc=True)
     finally:
         fake_supabase.table = original_table
+
+
+# ---------------------------------------------------------------------------
+# PATCH /expedientes/{id}
+# ---------------------------------------------------------------------------
+
+def test_patch_expediente_updates_razon_social(client, fake_supabase):
+    fake_supabase.store["expedientes"] = [
+        {"id": "abc-123", "razon_social": "Original SA", "rfc": "ORI010101AB1",
+         "domicilio_fiscal": "", "representante_legal": "", "status": "pending",
+         "decision": None, "score_total": None}
+    ]
+    response = client.patch("/expedientes/abc-123", json={"razon_social": "Nueva SA"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["razon_social"] == "Nueva SA"
+
+
+def test_patch_expediente_uppercases_rfc(client, fake_supabase):
+    fake_supabase.store["expedientes"] = [
+        {"id": "abc-123", "razon_social": "X", "rfc": "OLD010101AB1",
+         "domicilio_fiscal": "", "representante_legal": "", "status": "pending",
+         "decision": None, "score_total": None}
+    ]
+    response = client.patch("/expedientes/abc-123", json={"rfc": "new010101ab1"})
+    assert response.status_code == 200
+    assert response.json()["rfc"] == "NEW010101AB1"
+
+
+def test_patch_expediente_returns_404_for_unknown_id(client, fake_supabase):
+    response = client.patch("/expedientes/no-such-id", json={"razon_social": "X"})
+    assert response.status_code == 404
+
+
+def test_patch_expediente_rejects_empty_body(client, fake_supabase):
+    fake_supabase.store["expedientes"] = [
+        {"id": "abc-123", "razon_social": "X", "rfc": "ABC010101AB1",
+         "domicilio_fiscal": "", "representante_legal": "", "status": "pending",
+         "decision": None, "score_total": None}
+    ]
+    response = client.patch("/expedientes/abc-123", json={})
+    assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# DELETE /expedientes/{id}
+# ---------------------------------------------------------------------------
+
+def test_delete_expediente_returns_204(client, fake_supabase):
+    fake_supabase.store["expedientes"] = [
+        {"id": "del-123", "razon_social": "X", "rfc": "DEL010101AB1",
+         "domicilio_fiscal": "", "representante_legal": "", "status": "pending",
+         "decision": None, "score_total": None}
+    ]
+    response = client.delete("/expedientes/del-123")
+    assert response.status_code == 204
+
+
+def test_delete_expediente_returns_404_for_unknown_id(client, fake_supabase):
+    response = client.delete("/expedientes/no-such-id")
+    assert response.status_code == 404

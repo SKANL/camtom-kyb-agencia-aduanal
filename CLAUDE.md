@@ -43,6 +43,180 @@ Cada proyecto tiene su propio `.env.example` (contenido exacto definido en el pl
 - Backend: `cd backend && uv run pytest src/tests/ -v` · `uv run fastapi dev src/main.py`
 - Frontend: `cd frontend && pnpm dev` · `pnpm build`
 
+## RTK — Rust Token Killer (Mandatory)
+
+RTK is a CLI proxy that compresses command output by **60-90%** before it reaches the context window. Single Rust binary, zero dependencies, <10ms overhead. Open source (Apache 2.0), no telemetry by default.
+
+**YOU MUST prefix EVERY supported CLI command with `rtk`**. This is not optional — the savings compound across every command in every session.
+
+```
+Without RTK:  git status  →  ~3,000 tokens
+With RTK:     rtk git status  →  ~600 tokens  (80% saved)
+```
+
+### Installation & activation (Windows)
+
+```powershell
+# Via Cargo (si Rust está instalado):
+cargo install --git https://github.com/rtk-ai/rtk
+
+# Activar hook para Claude Code (hacer una sola vez):
+rtk init -g
+
+# Verificar:
+rtk --version
+rtk gain
+rtk init --show
+```
+
+### Windows PowerShell — CLAUDE.md injection mode
+
+El hook de auto-rewrite requiere shell Unix — **no funciona en PowerShell nativo**. Con `rtk init -g`, RTK cae en **CLAUDE.md injection mode**: los filtros funcionan al 100%, pero los comandos NO se reescriben solos. **Vos (el AI) tenés que agregar el prefijo `rtk` manualmente** en cada comando.
+
+Adicionalmente, los built-in tools de Claude Code (`Read`, `Grep`, `Glob`) siempre bypass RTK sin importar la plataforma — solo los comandos Bash/shell pasan por RTK.
+
+---
+
+### Command reference — este proyecto
+
+#### Git
+
+| En vez de | Usar | Ahorro |
+|---|---|---|
+| `git status` | `rtk git status` | 80% |
+| `git log -n 10` | `rtk git log -n 10` | 80% |
+| `git diff` | `rtk git diff` | 75% |
+| `git show` | `rtk git show` | 75% |
+| `git stash list` | `rtk git stash list` | 75% |
+| `git add .` | `rtk git add .` | → `ok` |
+| `git commit -m "msg"` | `rtk git commit -m "msg"` | → `ok abc1234` |
+| `git push` | `rtk git push` | → `ok main` |
+| `git pull` | `rtk git pull` | → `ok 3 files +10 -2` |
+
+#### GitHub CLI
+
+| En vez de | Usar | Ahorro |
+|---|---|---|
+| `gh pr view 42` | `rtk gh pr view 42` | 87% |
+| `gh pr checks` | `rtk gh pr checks` | 79% |
+| `gh run list` | `rtk gh run list` | 82% |
+| `gh issue list` | `rtk gh issue list` | 80% |
+| `gh pr list` | `rtk gh pr list` | Compact |
+
+#### Python — backend (`uv`, `pytest`, `ruff`, `mypy`)
+
+| En vez de | Usar | Ahorro |
+|---|---|---|
+| `uv run pytest src/tests/ -v` | `rtk test "uv run pytest src/tests/ -v"` | ~90% (solo fallos) |
+| `ruff check` | `rtk ruff check` | 75% |
+| `mypy` | `rtk mypy` | 75% |
+| `pip list` | `rtk pip list` | auto-detecta uv |
+
+> `rtk pytest` mapea a `pytest` a secas. Para `uv run pytest`, usar el wrapper genérico `rtk test "<cmd>"` — muestra solo los fallos.
+
+#### JavaScript / TypeScript — frontend (`pnpm`, Next.js)
+
+| En vez de | Usar | Ahorro |
+|---|---|---|
+| `pnpm build` | `rtk next build` | 80% |
+| `pnpm list` | `rtk pnpm list` | 70-90% |
+| `pnpm outdated` | `rtk pnpm outdated` | 70% |
+| `tsc --noEmit` | `rtk tsc` | 75% |
+| `eslint .` | `rtk lint` | 84% |
+| `prettier --check .` | `rtk prettier --check .` | Solo archivos con cambios |
+
+#### Files y search
+
+| En vez de | Usar | Ahorro |
+|---|---|---|
+| `ls -la` | `rtk ls .` | 80% |
+| `cat <file>` | `rtk read <file>` | 60-80% |
+| `grep <pattern>` | `rtk grep <pattern>` | ~50% |
+| `find . -name "*.py"` | `rtk find "*.py"` | 75% |
+| `diff file1 file2` | `rtk diff file1 file2` | 65% |
+| `cat pyproject.toml` | `rtk deps` | 85% (resumen de deps) |
+| Resumen de código | `rtk smart <file>` | 85% (heurística 2 líneas) |
+| Solo firmas | `rtk read <file> -l aggressive` | 95% |
+
+#### Logs y datos
+
+| En vez de | Usar |
+|---|---|
+| `cat app.log` | `rtk log app.log` |
+| `curl <url>` | `rtk curl <url>` |
+| `cat config.json` | `rtk json config.json` |
+
+#### Wrappers genéricos (catch-all)
+
+```bash
+# Cualquier comando de test — solo fallos (~90% ahorro):
+rtk test "uv run pytest src/tests/ -v"
+
+# Cualquier comando — solo errores:
+rtk err <command>
+
+# Comando sin soporte — passthrough con tracking:
+rtk proxy <command>
+```
+
+---
+
+### Ultra-compact mode
+
+Usar `--ultra-compact` para reducción máxima (íconos ASCII, formato inline):
+
+```bash
+rtk ruff check --ultra-compact
+rtk tsc --ultra-compact
+```
+
+> **Git caveat**: NO usar `-u` con comandos Git — Git interpreta `-u` como `--set-upstream`. Usar siempre la forma larga `--ultra-compact`.
+
+---
+
+### Analytics
+
+```bash
+rtk gain                          # dashboard — ahorro total
+rtk gain --graph                  # gráfico ASCII (últimos 30 días)
+rtk gain --history                # historial de comandos
+rtk gain --daily                  # desglose por día
+rtk discover                      # detecta oportunidades perdidas
+rtk session                       # adopción de RTK por sesión
+```
+
+---
+
+### Configuración
+
+`%APPDATA%\rtk\config.toml` (Windows):
+
+```toml
+[tee]
+enabled = true
+mode = "failures"   # guarda output completo en fallos para que el LLM lo lea sin re-ejecutar
+```
+
+---
+
+### Troubleshooting
+
+**`rtk gain` dice "not a rtk command"** — tenés el binario equivocado (Rust Type Kit, no Token Killer):
+```powershell
+cargo uninstall rtk
+cargo install --git https://github.com/rtk-ai/rtk
+rtk gain    # debe mostrar el dashboard de ahorro
+```
+
+**Comando no filtrado** — usar `rtk proxy <cmd>` para trackearlo, o `rtk discover` para encontrar oportunidades perdidas.
+
+**Debug**:
+```bash
+rtk git status -vvv
+```
+
+**Docs**: https://www.rtk-ai.app/guide
+
 ## CodeGraph — ahorro de tokens y contexto quirúrgico
 
 CodeGraph indexa todos los símbolos del monorepo (Python + TypeScript) en SQLite

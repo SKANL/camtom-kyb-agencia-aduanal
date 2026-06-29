@@ -94,6 +94,46 @@ def evaluate_expediente(
     return evaluar_expediente(supabase, expediente_id, resultado_reconciliacion)
 
 
+class ActualizarExpedienteBody(BaseModel):
+    razon_social: str | None = None
+    rfc: str | None = None
+    domicilio_fiscal: str | None = None
+    representante_legal: str | None = None
+
+
+@router.patch("/{expediente_id}")
+def actualizar_expediente(
+    expediente_id: str,
+    body: ActualizarExpedienteBody,
+    supabase: Client = Depends(get_supabase_client),
+):
+    data = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not data:
+        raise HTTPException(status_code=400, detail="No hay campos para actualizar")
+    if "rfc" in data:
+        data["rfc"] = data["rfc"].upper()
+    check = supabase.table("expedientes").select("id").eq("id", expediente_id).execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="Expediente no encontrado")
+    result = supabase.table("expedientes").update(data).eq("id", expediente_id).execute()
+    if result.data:
+        return result.data[0]
+    # FakeSupabase update returns empty data — re-select to return the mutated row
+    rows = supabase.table("expedientes").select("*").eq("id", expediente_id).execute()
+    return rows.data[0]
+
+
+@router.delete("/{expediente_id}", status_code=204)
+def eliminar_expediente(
+    expediente_id: str,
+    supabase: Client = Depends(get_supabase_client),
+):
+    check = supabase.table("expedientes").select("id").eq("id", expediente_id).execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="Expediente no encontrado")
+    supabase.table("expedientes").delete().eq("id", expediente_id).execute()
+
+
 @router.post("/{expediente_id}/report-change")
 def report_change(
     expediente_id: str,

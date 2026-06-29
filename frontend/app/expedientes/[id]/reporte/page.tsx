@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { api } from "@/lib/api-client";
+import { api, type EvaluationResult, type ConsultaSat } from "@/lib/api-client";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { FactorDetailCard } from "@/components/FactorDetailCard";
 import { StepperHeader } from "@/components/StepperHeader";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { DecisionContext } from "@/components/DecisionContext";
 import { ActionCard } from "@/components/ActionCard";
+import { SatEvidenceSection } from "@/components/SatEvidenceSection";
 import { EvaluateButton } from "./EvaluateButton";
 
 const FACTOR_LABELS: Record<string, string> = {
@@ -29,53 +30,44 @@ const FACTOR_LABELS: Record<string, string> = {
   rep_legal_incompleto: "Nombre de rep. legal faltante",
 };
 
-function FactorRow({
-  code,
-  points,
-  maxPoints,
-}: {
-  code: string;
-  points: number;
-  maxPoints: number;
-}) {
-  const pct = maxPoints > 0 ? Math.min((points / maxPoints) * 100, 100) : 0;
-  const barColor =
-    points === 0
-      ? "bg-success"
-      : points >= 50
-      ? "bg-destructive"
-      : "bg-warning";
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Pendiente",
+  processing: "Procesando",
+  completed: "Completado",
+  needs_update: "Requiere actualización",
+  review_required: "En revisión",
+};
 
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm truncate">
-          {FACTOR_LABELS[code] ?? code}
-        </p>
-      </div>
-      <div className="w-32 shrink-0">
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${barColor}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-      <div className="w-14 text-right">
-        <span
-          className={`text-sm font-mono font-bold ${
-            points === 0
-              ? "text-success"
-              : points >= 50
-              ? "text-destructive"
-              : "text-warning"
-          }`}
-        >
-          {points === 0 ? "—" : `+${points}`}
-        </span>
-      </div>
-    </div>
-  );
+function buildNarrative(
+  evaluation: EvaluationResult,
+  razonSocial: string
+): string {
+  const { decision, score_total, factores_detail } = evaluation;
+  const criticals = factores_detail.filter((f) => f.is_critical_block && f.points > 0);
+  const risks = factores_detail.filter((f) => !f.is_critical_block && f.points > 0);
+
+  if (decision === "safe") {
+    if (risks.length === 0 && criticals.length === 0) {
+      return `${razonSocial} superó todas las verificaciones sin señales de riesgo. El RFC no aparece en ninguna lista fiscal del SAT (Art. 69, 69-B ni 69-B Bis), los documentos presentados son consistentes entre sí y están completos. El score acumulado es ${score_total} puntos, por debajo del umbral de alerta (< 30 pts). La empresa cumple los criterios de la Regla 1.4.14 RGCE 2026 para operar en comercio exterior.`;
+    }
+    return `${razonSocial} obtuvo un score de ${score_total} puntos. Se detectaron ${risks.length} observación(es) menores (${risks.map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code).join(", ")}), pero ninguna supera el umbral crítico ni activa bloqueo automático. La empresa puede operar bajo monitoreo continuo.`;
+  }
+
+  if (decision === "high_risk") {
+    if (criticals.length > 0) {
+      return `${razonSocial} no puede operar en comercio exterior bajo la Regla 1.4.14 RGCE 2026. Se activó bloqueo automático por ${criticals.length} factor(es) crítico(s): ${criticals.map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code).join("; ")}. La presencia en listas fiscales del SAT o discrepancias irreconciliables constituyen impedimento absoluto independientemente del score total (${score_total} pts).`;
+    }
+    return `${razonSocial} acumula ${score_total} puntos de riesgo, superando el umbral crítico de 100 pts. Los factores de mayor impacto son: ${risks
+      .slice(0, 3)
+      .map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code)
+      .join(", ")}. Se requiere resolución de los puntos observados antes de autorizar operaciones de comercio exterior.`;
+  }
+
+  // review_required
+  return `${razonSocial} acumula ${score_total} puntos de riesgo (umbral de alerta: 30–99 pts). Se detectaron ${risks.length + criticals.length} factor(es) que requieren verificación manual: ${[...criticals, ...risks]
+    .slice(0, 3)
+    .map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code)
+    .join(", ")}. La empresa puede continuar el proceso sujeto a revisión documental adicional por parte del agente aduanal.`;
 }
 
 export default async function ReportePage({
@@ -87,10 +79,12 @@ export default async function ReportePage({
 
   let expediente = null;
   let evaluation = null;
+  let consultas: ConsultaSat[] = [];
   try {
-    [expediente, evaluation] = await Promise.all([
+    [expediente, evaluation, consultas] = await Promise.all([
       api.getExpediente(id),
       api.getLatestEvaluation(id).catch(() => null),
+      api.listConsultasSat(id).catch(() => []),
     ]);
   } catch {
     // Build time
@@ -117,6 +111,8 @@ export default async function ReportePage({
   const maxPoints = factoresConRiesgo.length
     ? Math.max(...factoresConRiesgo.map((f) => f.points))
     : 100;
+
+  const narrative = evaluation ? buildNarrative(evaluation, expediente.razon_social) : null;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8">
@@ -145,6 +141,39 @@ export default async function ReportePage({
         )}
       </div>
 
+      {/* Plain-language narrative */}
+      {narrative && (
+        <div className="rounded-xl border border-border bg-card p-6 mb-6">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            ¿Por qué esta decisión?
+          </h2>
+          <p className="text-sm leading-relaxed">{narrative}</p>
+
+          <details className="mt-4">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+              Ver umbrales de clasificación
+            </summary>
+            <div className="mt-3 rounded-lg bg-muted/40 p-3 text-xs space-y-1.5">
+              <p>
+                <span className="inline-block w-28 text-muted-foreground">Safe (aprobado):</span>
+                Score &lt; 30 pts y sin bloqueos críticos
+              </p>
+              <p>
+                <span className="inline-block w-28 text-muted-foreground">Revisión:</span>
+                30 ≤ Score &lt; 100 pts o indicios menores
+              </p>
+              <p>
+                <span className="inline-block w-28 text-muted-foreground">Alto riesgo:</span>
+                Score ≥ 100 pts o bloqueo crítico activo
+              </p>
+              <p className="text-muted-foreground/70 pt-1">
+                Bloqueos críticos: presencia en Art. 69-B definitivos, RFC inválido, o discrepancia irreconciliable entre documentos.
+              </p>
+            </div>
+          </details>
+        </div>
+      )}
+
       {/* Score breakdown by category */}
       {evaluation && factoresConRiesgo.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 mb-6">
@@ -164,6 +193,11 @@ export default async function ReportePage({
             hasCriticalBlock={factoresDetail.some((f) => f.is_critical_block)}
           />
         </div>
+      )}
+
+      {/* SAT evidence */}
+      {consultas.length > 0 && (
+        <SatEvidenceSection consultas={consultas} />
       )}
 
       {/* Risk factors */}
@@ -227,7 +261,7 @@ export default async function ReportePage({
           </div>
           <div>
             <dt className="text-muted-foreground text-xs">Estado</dt>
-            <dd className="capitalize">{expediente.status}</dd>
+            <dd>{STATUS_LABEL[expediente.status] ?? expediente.status}</dd>
           </div>
           {expediente.domicilio_fiscal && (
             <div className="col-span-2">
