@@ -48,36 +48,36 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Pro
       suggestedLabel: "Clasificando…",
     }));
 
+    setFiles((prev) => [...prev, ...pending]);
+    const startIdx = files.length; // capture before await
+
+    const results = await Promise.all(
+      pdfs.map((f) =>
+        api.classifyDocumento(f).catch(() => ({
+          doc_type: "unknown" as const,
+          confidence: "low" as const,
+          suggested_label: "Sin clasificar",
+        }))
+      )
+    );
+
     setFiles((prev) => {
-      const startIdx = prev.length;
-      const updated = [...prev, ...pending];
-      // Kick off classification after state is set
-      Promise.all(
-        pdfs.map((f) =>
-          api.classifyDocumento(f).catch(() => ({
-            doc_type: "unknown" as const,
-            confidence: "low" as const,
-            suggested_label: "Sin clasificar",
-          }))
-        )
-      ).then((results) => {
-        setFiles((current) => {
-          const next = [...current];
-          results.forEach((result, i) => {
-            next[startIdx + i] = {
-              ...next[startIdx + i],
-              status: "classified",
-              docType: result.doc_type,
-              confidence: result.confidence,
-              suggestedLabel: result.suggested_label,
-            };
-          });
-          return next;
-        });
+      const next = [...prev];
+      results.forEach((result, i) => {
+        const idx = startIdx + i;
+        if (next[idx]) {
+          next[idx] = {
+            ...next[idx],
+            status: "classified",
+            docType: result.doc_type,
+            confidence: result.confidence,
+            suggestedLabel: result.suggested_label,
+          };
+        }
       });
-      return updated;
+      return next;
     });
-  }, []);
+  }, [files.length]);
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -140,10 +140,13 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Pro
     );
 
     setProcessing(false);
-    const allDone = files.every(
-      (f) => f.status === "done" || f.status === "error" || f.docType === "unknown"
-    );
-    if (allDone) onAllDone();
+    setFiles((current) => {
+      const allSettled = current.every(
+        (f) => f.status === "done" || f.status === "error"
+      );
+      if (allSettled && current.length > 0) onAllDone();
+      return current;
+    });
   }
 
   const readyToProcess = files.some(
