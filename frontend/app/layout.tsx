@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { Header } from "@/components/header";
 
 export const metadata: Metadata = {
   title: "Camtom KYB",
-  description: "Plataforma KYB para agencia aduanal",
+  description: "Plataforma KYB para agencia aduanal — Regla 1.4.14 RGCE 2026",
 };
 
 export default function RootLayout({
@@ -23,11 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="es" className="h-full antialiased">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <Header />
+        <div className="flex-1">{children}</div>
+      </body>
     </html>
   );
 }
