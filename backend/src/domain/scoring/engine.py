@@ -16,8 +16,6 @@ def evaluar(factores: list[Factor]) -> ResultadoEvaluacion:
     critical_blocks = [f.factor_code for f in factores if f.is_critical_block]
     if critical_blocks:
         decision = "high_risk"
-    elif any(f.factor_code == "rfc_formato_invalido" for f in factores):
-        decision = "review_required"
     elif score_total >= UMBRAL_HIGH_RISK:
         decision = "high_risk"
     elif score_total >= UMBRAL_REVIEW_REQUIRED:
