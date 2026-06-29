@@ -249,3 +249,27 @@ def test_delete_expediente_returns_204(client, fake_supabase):
 def test_delete_expediente_returns_404_for_unknown_id(client, fake_supabase):
     response = client.delete("/expedientes/no-such-id")
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /expedientes/{id}/evaluations
+# ---------------------------------------------------------------------------
+
+def test_list_evaluations_returns_history(client, fake_supabase):
+    """GET /expedientes/{id}/evaluations returns list of past evaluations (most recent first)."""
+    expediente_id = "exp-hist-1"
+    # Seed in descending order so insertion-order matches expected sort (fake does not sort)
+    fake_supabase.store["evaluations"] = [
+        {"id": "ev-2", "expediente_id": expediente_id, "score_total": 0,
+         "decision": "safe", "critical_blocks": [], "summary": {},
+         "created_at": "2026-06-29T10:00:00Z"},
+        {"id": "ev-1", "expediente_id": expediente_id, "score_total": 50,
+         "decision": "review_required", "critical_blocks": [], "summary": {},
+         "created_at": "2026-06-28T10:00:00Z"},
+    ]
+    resp = client.get(f"/expedientes/{expediente_id}/evaluations")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    assert data[0]["decision"] == "safe"           # most recent first
+    assert data[1]["decision"] == "review_required"

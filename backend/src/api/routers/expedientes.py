@@ -65,6 +65,19 @@ def get_latest_evaluation(expediente_id: str, supabase: Client = Depends(get_sup
     }
 
 
+@router.get("/{expediente_id}/evaluations")
+def list_evaluations(expediente_id: str, supabase: Client = Depends(get_supabase_client)):
+    result = (
+        supabase.table("evaluations")
+        .select("id, score_total, decision, critical_blocks, created_at")
+        .eq("expediente_id", expediente_id)
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+    return result.data
+
+
 @router.get("/{expediente_id}/consultas-sat")
 def get_consultas_sat(expediente_id: str, supabase: Client = Depends(get_supabase_client)):
     result = (

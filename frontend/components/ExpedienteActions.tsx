@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type Expediente } from "@/lib/api-client";
+import { revalidateExpedientes } from "@/hooks/use-expedientes";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,9 +50,12 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
         representante_legal: editFields.representante_legal || undefined,
       });
       setEditOpen(false);
-      router.refresh();
+      await revalidateExpedientes();
+      toast.success("Expediente actualizado");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+      const msg = err instanceof Error ? err.message : "Error al guardar";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -62,13 +67,15 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
     try {
       await api.deleteExpediente(expediente.id);
       setDeleteOpen(false);
+      await revalidateExpedientes();
+      toast.success("Expediente eliminado");
       if (redirectOnDelete) {
         router.push("/");
-      } else {
-        router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al eliminar");
+      const msg = err instanceof Error ? err.message : "Error al eliminar";
+      setError(msg);
+      toast.error(msg);
       setDeleting(false);
     }
   }
@@ -95,7 +102,6 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
         </Button>
       </div>
 
-      {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -104,7 +110,6 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
               Modificá los datos del expediente. El RFC se normaliza a mayúsculas.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-3 py-1">
             {(
               [
@@ -118,16 +123,13 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
                 <label className="text-xs text-muted-foreground block mb-1">{label}</label>
                 <input
                   value={editFields[key]}
-                  onChange={(e) =>
-                    setEditFields({ ...editFields, [key]: e.target.value })
-                  }
+                  onChange={(e) => setEditFields({ ...editFields, [key]: e.target.value })}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             ))}
             {error && <p className="text-destructive text-xs">{error}</p>}
           </div>
-
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />} disabled={saving}>
               Cancelar
@@ -139,7 +141,6 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
@@ -150,9 +151,7 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
               evaluaciones y registros de auditoría.
             </DialogDescription>
           </DialogHeader>
-
           {error && <p className="text-destructive text-xs px-1">{error}</p>}
-
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />} disabled={deleting}>
               Cancelar

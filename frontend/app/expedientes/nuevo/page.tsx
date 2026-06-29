@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
+import { revalidateExpedientes } from "@/hooks/use-expedientes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export default function NuevoExpedientePage() {
     setError(null);
     try {
       const expediente = await api.createExpediente(form);
+      await revalidateExpedientes();
       router.push(`/expedientes/${expediente.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear expediente");
