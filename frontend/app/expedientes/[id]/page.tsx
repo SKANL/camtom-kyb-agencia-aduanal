@@ -24,6 +24,18 @@ const EXTRACTION_STATUS_BADGE: Record<string, { label: string; className: string
   error: { label: "Error", className: "bg-destructive text-background" },
 };
 
+const LIST_TYPE_LABELS: Record<string, string> = {
+  art_69: "Art. 69 CFF — Incumplidos",
+  art_69b: "Art. 69-B CFF — EFOS",
+  art_69b_bis: "Art. 69-B Bis CFF — Pérdidas",
+};
+
+const RESULTADO_BADGE: Record<string, { label: string; className: string }> = {
+  sin_coincidencia: { label: "Sin coincidencia", className: "bg-success/15 text-success" },
+  coincidencia: { label: "Coincidencia", className: "bg-destructive/15 text-destructive" },
+  formato_invalido: { label: "RFC inválido", className: "bg-warning/15 text-warning" },
+};
+
 export default async function ExpedienteDetailPage({
   params,
 }: {
@@ -62,7 +74,7 @@ export default async function ExpedienteDetailPage({
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-8">
-      <StepperHeader currentStep={2} />
+      <StepperHeader currentStep={2} expedienteId={id} />
 
       {/* Header */}
       <div className="mb-6">
@@ -243,9 +255,23 @@ export default async function ExpedienteDetailPage({
                     }>
                   ).map((c) => (
                     <tr key={c.id} className="border-t border-border">
-                      <td className="px-3 py-2 font-mono">{c.list_type ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono">{c.rfc ?? "—"}</td>
-                      <td className="px-3 py-2">{c.resultado ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {LIST_TYPE_LABELS[(c as any).list_type] ?? (c as any).list_type ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">{(c as any).rfc ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const r = (c as any).resultado ?? "";
+                          const badge = RESULTADO_BADGE[r];
+                          return badge ? (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+                              {badge.label}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">{r || "—"}</span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         {c.created_at ? new Date(c.created_at).toLocaleString("es-MX") : "—"}
                       </td>

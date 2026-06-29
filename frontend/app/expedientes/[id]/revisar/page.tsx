@@ -6,6 +6,7 @@ import { api, type Documento } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StepperHeader } from "@/components/StepperHeader";
 
 const FIELD_LABELS: Record<string, string> = {
   rfc: "RFC",
@@ -160,6 +161,7 @@ export default function RevisarPage({
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-8">
+      <StepperHeader currentStep={3} expedienteId={id} />
       <div className="mb-6">
         <Link
           href={`/expedientes/${id}`}
