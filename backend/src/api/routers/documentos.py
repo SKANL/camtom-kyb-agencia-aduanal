@@ -83,10 +83,15 @@ _CLASSIFY_LABELS = {
 }
 
 
+_MAX_CLASSIFY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
 @router.post("/classify")
 async def classify_documento(file: UploadFile = File(...)):
     """Classify a PDF by content without creating a DB record."""
-    content = await file.read()
+    content = await file.read(_MAX_CLASSIFY_BYTES + 1)
+    if len(content) > _MAX_CLASSIFY_BYTES:
+        raise HTTPException(status_code=413, detail="Archivo demasiado grande (máx 10 MB)")
     texto = extraer_texto_de_bytes(content)
     if not texto.strip():
         return {"doc_type": "unknown", "confidence": "low", "suggested_label": "Sin texto extraído"}
