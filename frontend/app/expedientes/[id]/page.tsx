@@ -49,7 +49,9 @@ export default async function ExpedienteDetailPage({
     return (
       <main className="max-w-5xl mx-auto px-6 py-8">
         <p className="text-muted-foreground">Expediente no encontrado.</p>
-        <Link href="/" className="text-primary hover:underline">← Volver</Link>
+        <Link href="/" className="text-primary hover:underline">
+          ← Volver
+        </Link>
       </main>
     );
   }
@@ -212,8 +214,8 @@ export default async function ExpedienteDetailPage({
         </TabsContent>
 
         <TabsContent value="audit" className="mt-4">
-          <p className="text-xs text-muted-foreground mb-3">
-            Consultas realizadas contra listas fiscales del SAT (Art. 69, 69-B, 69-B Bis)
+            <p className="text-xs text-muted-foreground mb-3">
+              Consultas realizadas contra listas fiscales del SAT (Art. 69, 69-B, 69-B Bis)
           </p>
           {consultasSat.length === 0 ? (
             <p className="text-muted-foreground text-sm py-8 text-center">

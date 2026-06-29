@@ -12,6 +12,76 @@ const ACCION_CATEGORY_ICON: Record<string, string> = {
   otro: "›",
 };
 
+const FACTOR_LABELS: Record<string, string> = {
+  sat_69b_definitivo: "RFC en EFOS definitivos (Art. 69-B)",
+  sat_69b_presunto: "RFC en EFOS presuntos (Art. 69-B)",
+  sat_69b_bis: "RFC en transmisión pérdidas (Art. 69-B Bis)",
+  sat_69_incumplido: "RFC incumplido (Art. 69)",
+  rfc_formato_invalido: "RFC con formato inválido",
+  art_49bis_no_verificable: "Art. 49 Bis sin lista pública",
+  disc_rfc: "Discrepancia de RFC entre documentos",
+  disc_razon_social: "Discrepancia de razón social",
+  disc_domicilio: "Discrepancia de domicilio",
+  disc_representante: "Discrepancia de representante legal",
+  disc_fechas: "Inconsistencia de fechas",
+  doc_missing: "Documento faltante",
+  doc_data_incomplete: "Campos incompletos en documento",
+  doc_expired: "Documento vencido",
+  csf_stale: "CSF de mes anterior",
+  manifestacion_incompleta: "Manifestación bajo Protesta incompleta",
+  socios_incompletos: "Socios/accionistas sin registrar",
+  rep_legal_incompleto: "Nombre de rep. legal faltante",
+};
+
+function FactorRow({
+  code,
+  points,
+  maxPoints,
+}: {
+  code: string;
+  points: number;
+  maxPoints: number;
+}) {
+  const pct = maxPoints > 0 ? Math.min((points / maxPoints) * 100, 100) : 0;
+  const barColor =
+    points === 0
+      ? "bg-success"
+      : points >= 50
+      ? "bg-destructive"
+      : "bg-warning";
+
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm truncate">
+          {FACTOR_LABELS[code] ?? code}
+        </p>
+      </div>
+      <div className="w-32 shrink-0">
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+      <div className="w-14 text-right">
+        <span
+          className={`text-sm font-mono font-bold ${
+            points === 0
+              ? "text-success"
+              : points >= 50
+              ? "text-destructive"
+              : "text-warning"
+          }`}
+        >
+          {points === 0 ? "—" : `+${points}`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default async function ReportePage({
   params,
 }: {
@@ -35,7 +105,9 @@ export default async function ReportePage({
       <main className="max-w-3xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <p className="text-muted-foreground">Expediente no encontrado.</p>
-          <Link href="/" className="text-primary hover:underline mt-4 block">← Volver</Link>
+          <Link href="/" className="text-primary hover:underline mt-4 block">
+            ← Volver
+          </Link>
         </div>
       </main>
     );
