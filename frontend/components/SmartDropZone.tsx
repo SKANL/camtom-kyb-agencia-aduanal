@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
@@ -140,14 +140,13 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Pro
     );
 
     setProcessing(false);
-    setFiles((current) => {
-      const allSettled = current.every(
-        (f) => f.status === "done" || f.status === "error"
-      );
-      if (allSettled && current.length > 0) onAllDone();
-      return current;
-    });
   }
+
+  useEffect(() => {
+    if (files.length > 0 && files.every((f) => f.status === "done" || f.status === "error")) {
+      onAllDone();
+    }
+  }, [files, onAllDone]);
 
   const readyToProcess = files.some(
     (f) => f.status === "classified" && f.docType !== "unknown"
