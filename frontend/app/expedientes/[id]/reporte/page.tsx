@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { api, type EvaluationResult, type ConsultaSat } from "@/lib/api-client";
+import { api, type EvaluationResult, type ConsultaSat, type EvaluationHistoryEntry } from "@/lib/api-client";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { FactorDetailCard } from "@/components/FactorDetailCard";
 import { StepperHeader } from "@/components/StepperHeader";
@@ -8,6 +8,8 @@ import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { DecisionContext } from "@/components/DecisionContext";
 import { ActionCard } from "@/components/ActionCard";
 import { SatEvidenceSection } from "@/components/SatEvidenceSection";
+import { EvaluationHistory } from "@/components/EvaluationHistory";
+import { ComplianceContext } from "@/components/ComplianceContext";
 import { EvaluateButton } from "./EvaluateButton";
 
 const FACTOR_LABELS: Record<string, string> = {
@@ -96,11 +98,13 @@ export default async function ReportePage({
   let expediente = null;
   let evaluation = null;
   let consultas: ConsultaSat[] = [];
+  let historialEvals: EvaluationHistoryEntry[] = [];
   try {
-    [expediente, evaluation, consultas] = await Promise.all([
+    [expediente, evaluation, consultas, historialEvals] = await Promise.all([
       api.getExpediente(id),
       api.getLatestEvaluation(id).catch(() => null),
       api.listConsultasSat(id).catch(() => []),
+      api.listEvaluations(id).catch(() => []),
     ]);
   } catch {
     // Build time
@@ -303,6 +307,18 @@ export default async function ReportePage({
           )}
         </dl>
       </div>
+
+      {/* Evaluation history (only shown if >1 evaluation) */}
+      {historialEvals.length > 1 && (
+        <section className="mb-6">
+          <EvaluationHistory entries={historialEvals} />
+        </section>
+      )}
+
+      {/* Legal + compliance context */}
+      <section className="mb-6">
+        <ComplianceContext />
+      </section>
 
       {/* Actions */}
       <div className="flex gap-3 flex-wrap">
