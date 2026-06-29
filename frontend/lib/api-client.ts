@@ -77,6 +77,20 @@ export type SatImportRun = {
   finished_at: string | null;
 };
 
+export class DuplicateDocumentoError extends Error {
+  constructor(public readonly documentoId: string) {
+    super("Documento de este tipo ya existe en el expediente");
+    this.name = "DuplicateDocumentoError";
+  }
+}
+
+export type UploadDocumentoResult = {
+  documento_id: string;
+  doc_type: string;
+  fields: Record<string, unknown>;
+  extraction_status: string;
+};
+
 export const api = {
   checkHealth: (): Promise<{ status: string }> =>
     request("/health"),
@@ -139,6 +153,27 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ fields }),
     }),
+
+  uploadDocumento: async (
+    expedienteId: string,
+    docType: string,
+    file: File
+  ): Promise<UploadDocumentoResult> => {
+    const form = new FormData();
+    form.append("expediente_id", expedienteId);
+    form.append("doc_type", docType);
+    form.append("file", file);
+    const res = await fetch(`${API_URL}/documentos/upload`, {
+      method: "POST",
+      body: form,
+    });
+    if (res.status === 409) {
+      const data = await res.json();
+      throw new DuplicateDocumentoError(data.detail?.documento_id ?? "");
+    }
+    if (!res.ok) throw new Error(`Upload error ${res.status}: ${await res.text()}`);
+    return res.json();
+  },
 
   classifyDocumento: async (file: File): Promise<ClassifyResult> => {
     const form = new FormData();
