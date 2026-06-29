@@ -6,6 +6,7 @@ import { api, type Documento } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle2 } from "lucide-react";
 import { StepperHeader } from "@/components/StepperHeader";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -60,6 +61,7 @@ export default function RevisarPage({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [remainingDocs, setRemainingDocs] = useState<{ id: string; doc_type: string }[]>([]);
 
   useEffect(() => {
     if (!documento_id) {
@@ -116,28 +118,72 @@ export default function RevisarPage({
     }
   }
 
+  useEffect(() => {
+    if (!saved) return;
+    api.listDocumentos(id).then((docs) => {
+      const needReview = docs.filter(
+        (d) =>
+          d.id !== documento_id &&
+          (d.extraction_status === "extracted" || d.extraction_status === "not_applicable")
+      );
+      setRemainingDocs(needReview.map((d) => ({ id: d.id, doc_type: d.doc_type })));
+    }).catch(() => {});
+  }, [saved, id, documento_id]);
+
   if (saved) {
+    const nextDoc = remainingDocs[0];
     return (
       <main className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <p className="text-success text-2xl">✓ Revisión guardada</p>
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-12 h-12 rounded-full bg-success/15 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="size-6 text-success" />
+          </div>
+          <p className="text-lg font-semibold">Revisión guardada</p>
           <p className="text-muted-foreground text-sm">
             Los campos fueron confirmados con revisión humana.
           </p>
-          <div className="flex gap-3 justify-center">
-            <Button
-              className="bg-primary text-primary-foreground"
-              onClick={() => router.push(`/expedientes/${id}/reporte`)}
-            >
-              Ver reporte KYB
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/expedientes/${id}`)}
-            >
-              Volver al expediente
-            </Button>
-          </div>
+
+          {remainingDocs.length > 0 ? (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 text-left">
+              <p className="text-sm font-medium">
+                {remainingDocs.length} documento{remainingDocs.length !== 1 ? "s" : ""} más por revisar
+              </p>
+              {nextDoc && (
+                <Button
+                  className="w-full"
+                  onClick={() => router.push(`/expedientes/${id}/revisar?documento_id=${nextDoc.id}`)}
+                >
+                  Revisar siguiente documento →
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push(`/expedientes/${id}`)}
+              >
+                Ver todos los documentos
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-success font-medium">
+                ✓ Todos los documentos revisados
+              </p>
+              <Button
+                className="w-full"
+                onClick={() => router.push(`/expedientes/${id}/reporte`)}
+              >
+                Ver reporte KYB →
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push(`/expedientes/${id}`)}
+              >
+                Volver al expediente
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     );

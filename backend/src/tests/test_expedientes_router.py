@@ -165,3 +165,26 @@ def test_get_consultas_sat_returns_records_for_expediente(client, fake_supabase)
     data = response.json()
     assert len(data) == 1
     assert data[0]["id"] == "c-1"
+
+
+def test_get_consultas_sat_uses_consulted_at(client, fake_supabase):
+    """Verify the query orders by consulted_at (not created_at which does not exist)."""
+    # Set up a mock query object to track order calls
+    from unittest.mock import MagicMock
+    mock_query = MagicMock()
+    mock_query.select.return_value = mock_query
+    mock_query.eq.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.execute.return_value.data = []
+
+    # Replace the table method to return our mock
+    original_table = fake_supabase.table
+    fake_supabase.table = MagicMock(return_value=mock_query)
+
+    try:
+        response = client.get("/expedientes/exp-1/consultas-sat")
+        assert response.status_code == 200
+        # Verify the column used in order()
+        mock_query.order.assert_called_once_with("consulted_at", desc=True)
+    finally:
+        fake_supabase.table = original_table

@@ -71,7 +71,7 @@ def get_consultas_sat(expediente_id: str, supabase: Client = Depends(get_supabas
         supabase.table("consultas_sat")
         .select("*")
         .eq("expediente_id", expediente_id)
-        .order("created_at", desc=True)
+        .order("consulted_at", desc=True)
         .execute()
     )
     return result.data

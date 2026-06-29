@@ -34,7 +34,9 @@ class _FakeQuery:
         self._neq_filters[field] = value
         return self
 
-    def order(self, *_args, **_kwargs):
+    def order(self, *args, **kwargs):
+        self._order_args = args
+        self._order_kwargs = kwargs
         return self
 
     def limit(self, *_args):

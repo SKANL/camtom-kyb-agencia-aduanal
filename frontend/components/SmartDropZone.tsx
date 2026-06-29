@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   FolderOpen, CheckCircle2, XCircle, Loader2, AlertTriangle, X, ChevronRight, FileText,
 } from "lucide-react";
-import { api } from "@/lib/api-client";
+import { api, DuplicateDocumentoError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
 const DOC_TYPE_OPTIONS = [
@@ -20,7 +20,7 @@ const DOC_TYPE_OPTIONS = [
 type FileState = {
   key: string;
   file: File;
-  status: "classifying" | "classified" | "uploading" | "extracting" | "done" | "error";
+  status: "classifying" | "classified" | "uploading" | "done" | "error";
   docType: string;
   confidence: "high" | "low";
   suggestedLabel: string;
@@ -164,20 +164,20 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
           );
         try {
           update("uploading");
-          const { documento_id, signed_url } = await api.crearDocumento(expedienteId, docType, "uploaded");
-          if (signed_url) {
-            await fetch(signed_url, { method: "PUT", body: file });
-          }
-          update("extracting", { documentoId: documento_id });
-          await api.extractDocumento(documento_id);
-          update("done", { documentoId: documento_id });
+          const result = await api.uploadDocumento(expedienteId, docType, file);
+          update("done", { documentoId: result.documento_id });
         } catch (err) {
-          update("error", { errorMsg: err instanceof Error ? err.message : "Error al procesar" });
+          if (err instanceof DuplicateDocumentoError) {
+            update("done", { documentoId: err.documentoId, errorMsg: "Ya existía — usando el registro anterior" });
+          } else {
+            update("error", { errorMsg: err instanceof Error ? err.message : "Error al procesar" });
+          }
         }
       })
     );
 
     setProcessing(false);
+    router.refresh();
   }
 
   async function handleEvaluate() {
@@ -203,7 +203,7 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
   function StatusIcon({ f }: { f: FileState }) {
     if (f.status === "done") return <CheckCircle2 className="size-4 text-success shrink-0" />;
     if (f.status === "error") return <XCircle className="size-4 text-destructive shrink-0" />;
-    if (f.status === "classifying" || f.status === "uploading" || f.status === "extracting")
+    if (f.status === "classifying" || f.status === "uploading")
       return <Loader2 className="size-4 text-muted-foreground shrink-0 animate-spin" />;
     if (f.confidence === "high") return <CheckCircle2 className="size-4 text-primary shrink-0" />;
     return <AlertTriangle className="size-4 text-warning shrink-0" />;
@@ -287,9 +287,8 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
                 ].join(" ")}>
                   {f.status === "error" ? f.errorMsg
                     : f.status === "classifying" ? "Clasificando con IA..."
-                    : f.status === "uploading" ? "Subiendo..."
-                    : f.status === "extracting" ? "Extrayendo campos con IA..."
-                    : f.status === "done" ? "Procesado"
+                    : f.status === "uploading" ? "Subiendo y extrayendo con IA..."
+                    : f.status === "done" ? (f.errorMsg ?? "Procesado")
                     : ""}
                 </span>
               )}

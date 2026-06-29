@@ -1,6 +1,9 @@
+import re
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 from pydantic import BaseModel
 
 from api.deps import get_supabase_client
@@ -69,6 +72,69 @@ def revisar_documento(documento_id: str, fields: dict, supabase=Depends(get_supa
         {"fields": fields, "extraction_status": "human_reviewed"}
     ).eq("id", documento_id).execute()
     return {"extraction_status": "human_reviewed"}
+
+
+@router.post("/upload")
+async def upload_documento(
+    expediente_id: str = Form(...),
+    doc_type: str = Form(...),
+    file: UploadFile = File(...),
+    supabase=Depends(get_supabase_client),
+):
+    if not _UUID_RE.match(expediente_id):
+        raise HTTPException(status_code=422, detail="expediente_id debe ser un UUID válido")
+
+    if doc_type not in SCHEMA_REGISTRY:
+        raise HTTPException(
+            status_code=422,
+            detail=f"doc_type inválido: {doc_type!r}. Valores: {sorted(SCHEMA_REGISTRY)}",
+        )
+
+    existing = (
+        supabase.table("documentos")
+        .select("id")
+        .eq("expediente_id", expediente_id)
+        .eq("doc_type", doc_type)
+        .execute()
+    )
+    if existing.data:
+        raise HTTPException(
+            status_code=409,
+            detail={"documento_id": existing.data[0]["id"], "message": "Ya existe un documento de este tipo en el expediente"},
+        )
+
+    content = await file.read()
+    storage_path = f"{expediente_id}/{doc_type}.pdf"
+
+    supabase.storage.from_("kyb-docs").upload(
+        path=storage_path,
+        file=content,
+        file_options={"content-type": "application/pdf", "upsert": "true"},
+    )
+
+    texto = extraer_texto_de_bytes(content)
+    campos = extraer_campos(supabase, doc_type, texto) if texto.strip() else {}
+
+    documento_id = str(uuid.uuid4())
+    supabase.table("documentos").insert(
+        {
+            "id": documento_id,
+            "expediente_id": expediente_id,
+            "doc_type": doc_type,
+            "entry_method": "uploaded",
+            "storage_path": storage_path,
+            "extracted_raw": campos,
+            "fields": campos,
+            "extraction_status": "extracted" if campos else "pending",
+        }
+    ).execute()
+
+    return {
+        "documento_id": documento_id,
+        "doc_type": doc_type,
+        "fields": campos,
+        "extraction_status": "extracted" if campos else "pending",
+    }
 
 
 _CLASSIFY_LABELS = {

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api-client";
+import { api, DuplicateDocumentoError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,26 +28,21 @@ export function DocumentUploader({ expedienteId, docType, onDone }: Props) {
     setErrorMsg(null);
     setPasoActual(0);
     try {
-      const { documento_id, signed_url } = await api.crearDocumento(
-        expedienteId,
-        docType,
-        "uploaded"
-      );
-      setDocId(documento_id);
-      if (signed_url) {
-        await fetch(signed_url, { method: "PUT", body: file });
-      }
-      setPasoActual(1);
-      setEstado("extracting");
-      setPasoActual(2);
-      await api.extractDocumento(documento_id);
+      const result = await api.uploadDocumento(expedienteId, docType, file);
+      setDocId(result.documento_id);
       setPasoActual(3);
       setEstado("done");
       onDone?.();
       router.refresh();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Error al procesar");
-      setEstado("error");
+      if (err instanceof DuplicateDocumentoError && err.documentoId) {
+        setDocId(err.documentoId);
+        setEstado("done");
+        onDone?.();
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : "Error al procesar");
+        setEstado("error");
+      }
     }
   }
 
