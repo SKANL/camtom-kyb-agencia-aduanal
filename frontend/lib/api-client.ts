@@ -31,9 +31,16 @@ export type Documento = {
   expediente_id: string;
   doc_type: string;
   entry_method: "uploaded" | "manual";
-  extraction_status: "pending" | "processing" | "done" | "error";
+  extraction_status:
+    | "pending"
+    | "processing"
+    | "extracted"
+    | "human_reviewed"
+    | "not_applicable"
+    | "error";
   fields: Record<string, unknown>;
   human_reviewed: boolean;
+  storage_path?: string | null;
 };
 
 export type EvaluationResult = {
@@ -79,6 +86,16 @@ export const api = {
 
   listDocumentos: (expedienteId: string): Promise<Documento[]> =>
     request(`/documentos?expediente_id=${expedienteId}`),
+
+  getDocumento: async (
+    expedienteId: string,
+    documentoId: string
+  ): Promise<Documento | null> => {
+    const docs = await request<Documento[]>(
+      `/documentos?expediente_id=${expedienteId}`
+    );
+    return docs.find((d) => d.id === documentoId) ?? null;
+  },
 
   crearDocumento: (
     expedienteId: string,
