@@ -96,6 +96,14 @@ export type ConsultaSat = {
   source_url: string | null;
 };
 
+export type EvaluationHistoryEntry = {
+  id: string;
+  score_total: number;
+  decision: Decision;
+  critical_blocks: string[];
+  created_at: string;
+};
+
 export class DuplicateDocumentoError extends Error {
   constructor(public readonly documentoId: string) {
     super("Documento duplicado");
@@ -142,6 +150,9 @@ export const api = {
 
   getLatestEvaluation: (id: string): Promise<EvaluationResult | null> =>
     request(`/expedientes/${id}/evaluations/latest`),
+
+  listEvaluations: (expedienteId: string): Promise<EvaluationHistoryEntry[]> =>
+    request(`/expedientes/${expedienteId}/evaluations`),
 
   listDocumentos: (expedienteId: string): Promise<Documento[]> =>
     request(`/documentos?expediente_id=${expedienteId}`),
