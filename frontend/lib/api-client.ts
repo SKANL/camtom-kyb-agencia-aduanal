@@ -43,12 +43,29 @@ export type Documento = {
   storage_path?: string | null;
 };
 
+export type FactorDetail = {
+  factor_code: string;
+  points: number;
+  is_critical_block: boolean;
+  detail: string;
+  evidence: Record<string, unknown> | null;
+  legal_ref: string;
+  category: "sat" | "discrepancia" | "completitud" | "otro";
+};
+
 export type EvaluationResult = {
   decision: Decision;
   score_total: number;
   factores_score: Record<string, number>;
+  factores_detail: FactorDetail[];
   acciones_sugeridas: string[];
   evaluated_at: string;
+};
+
+export type ClassifyResult = {
+  doc_type: string;
+  confidence: "high" | "low";
+  suggested_label: string;
 };
 
 export type SatImportRun = {
@@ -122,6 +139,17 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ fields }),
     }),
+
+  classifyDocumento: async (file: File): Promise<ClassifyResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_URL}/documentos/classify`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) throw new Error(`Classify error ${res.status}`);
+    return res.json();
+  },
 
   reportChange: (id: string, reason: string): Promise<void> =>
     request(`/expedientes/${id}/report-change`, {
