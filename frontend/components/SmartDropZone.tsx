@@ -14,6 +14,7 @@ const DOC_TYPE_OPTIONS = [
 ];
 
 type FileState = {
+  key: string;
   file: File;
   status: "classifying" | "classified" | "uploading" | "extracting" | "done" | "error";
   docType: string;
@@ -25,10 +26,10 @@ type FileState = {
 type Props = {
   expedienteId: string;
   existingDocTypes: string[];
-  onAllDone: () => void;
+  onAllDone?: () => void;
 };
 
-export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Props) {
+export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () => {} }: Props) {
   const [files, setFiles] = useState<FileState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -41,6 +42,7 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Pro
     if (!pdfs.length) return;
 
     const pending: FileState[] = pdfs.map((f) => ({
+      key: `${f.name}-${f.lastModified}-${Math.random()}`,
       file: f,
       status: "classifying",
       docType: "unknown",
@@ -192,7 +194,7 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone }: Pro
         <div className="space-y-2">
           {files.map((f, idx) => (
             <div
-              key={idx}
+              key={f.key}
               className={[
                 "rounded-lg border p-3 flex items-center gap-3 text-sm",
                 f.status === "done"

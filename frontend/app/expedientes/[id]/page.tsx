@@ -113,7 +113,6 @@ export default async function ExpedienteDetailPage({
         <SmartDropZone
           expedienteId={id}
           existingDocTypes={existingDocTypes}
-          onAllDone={() => {}}
         />
       </section>
 
