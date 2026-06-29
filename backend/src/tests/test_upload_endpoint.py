@@ -8,6 +8,9 @@ from api.deps import get_supabase_client
 from api.routers.documentos import router
 
 
+_EXP_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+
+
 def _make_pdf_bytes() -> bytes:
     return b"%PDF-1.4 test content"
 
@@ -28,13 +31,13 @@ def client(mock_supabase):
 def test_upload_creates_documento(client, mock_supabase):
     mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
     mock_supabase.table.return_value.insert.return_value.execute.return_value.data = [{"id": "doc-123"}]
-    mock_supabase.storage.from_.return_value.upload.return_value = {"path": "exp-1/csf.pdf"}
+    mock_supabase.storage.from_.return_value.upload.return_value = {"path": f"{_EXP_ID}/csf.pdf"}
 
     with patch("api.routers.documentos.extraer_texto_de_bytes", return_value="RFC: EKU9003173C9"):
         with patch("api.routers.documentos.extraer_campos", return_value={"rfc": "EKU9003173C9"}):
             resp = client.post(
                 "/documentos/upload",
-                data={"expediente_id": "exp-1", "doc_type": "csf"},
+                data={"expediente_id": _EXP_ID, "doc_type": "csf"},
                 files={"file": ("csf.pdf", _make_pdf_bytes(), "application/pdf")},
             )
 
@@ -52,7 +55,7 @@ def test_upload_returns_409_on_duplicate(client, mock_supabase):
 
     resp = client.post(
         "/documentos/upload",
-        data={"expediente_id": "exp-1", "doc_type": "csf"},
+        data={"expediente_id": _EXP_ID, "doc_type": "csf"},
         files={"file": ("csf.pdf", _make_pdf_bytes(), "application/pdf")},
     )
 
@@ -64,7 +67,16 @@ def test_upload_returns_409_on_duplicate(client, mock_supabase):
 def test_upload_rejects_invalid_doc_type(client, mock_supabase):
     resp = client.post(
         "/documentos/upload",
-        data={"expediente_id": "exp-1", "doc_type": "invalid_type"},
+        data={"expediente_id": _EXP_ID, "doc_type": "invalid_type"},
+        files={"file": ("x.pdf", _make_pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 422
+
+
+def test_upload_rejects_path_traversal_in_expediente_id(client, mock_supabase):
+    resp = client.post(
+        "/documentos/upload",
+        data={"expediente_id": "../../etc/passwd", "doc_type": "csf"},
         files={"file": ("x.pdf", _make_pdf_bytes(), "application/pdf")},
     )
     assert resp.status_code == 422

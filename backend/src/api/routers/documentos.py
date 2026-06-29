@@ -1,6 +1,9 @@
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 from pydantic import BaseModel
 
 from api.deps import get_supabase_client
@@ -78,6 +81,9 @@ async def upload_documento(
     file: UploadFile = File(...),
     supabase=Depends(get_supabase_client),
 ):
+    if not _UUID_RE.match(expediente_id):
+        raise HTTPException(status_code=422, detail="expediente_id debe ser un UUID válido")
+
     if doc_type not in SCHEMA_REGISTRY:
         raise HTTPException(
             status_code=422,
