@@ -3,6 +3,7 @@ from domain.scoring.factors import factores_listas_sat, factores_discrepancias, 
 from domain.scoring.engine import evaluar
 from domain.scoring.lifecycle import necesita_actualizacion
 from domain.scoring.acciones import acciones_para
+from domain.scoring.legal_refs import LEGAL_REFS
 from infrastructure.sat.lookup import consultar_rfc_en_listas
 
 def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconciliacion, hoy: date | None = None) -> dict:
@@ -17,15 +18,45 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
     acciones = acciones_para([f.factor_code for f in resultado.factores])
     needs_update = necesita_actualizacion(documentos, None, hoy, cliente_reporto_cambio=False)
 
+    factores_score = {f.factor_code: f.points for f in resultado.factores}
+    factores_detail = [
+        {
+            "factor_code": f.factor_code,
+            "points": f.points,
+            "is_critical_block": f.is_critical_block,
+            "detail": f.detail,
+            "evidence": f.evidence,
+            "legal_ref": LEGAL_REFS.get(f.factor_code, {}).get("ref", ""),
+            "category": LEGAL_REFS.get(f.factor_code, {}).get("category", "otro"),
+        }
+        for f in resultado.factores
+    ]
+
     supabase_client.table("evaluations").insert({
-        "expediente_id": expediente_id, "score_total": resultado.score_total, "decision": resultado.decision,
-        "critical_blocks": resultado.critical_blocks, "summary": {"acciones_sugeridas": acciones},
+        "expediente_id": expediente_id,
+        "score_total": resultado.score_total,
+        "decision": resultado.decision,
+        "critical_blocks": resultado.critical_blocks,
+        "summary": {
+            "acciones_sugeridas": acciones,
+            "factores_score": factores_score,
+            "factores_detail": factores_detail,
+        },
         "created_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
+
     supabase_client.table("expedientes").update({
-        "decision": resultado.decision, "score_total": resultado.score_total,
+        "decision": resultado.decision,
+        "score_total": resultado.score_total,
         "status": "needs_update" if needs_update else "completed",
         "last_evaluated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", expediente_id).execute()
 
-    return {"score_total": resultado.score_total, "decision": resultado.decision, "acciones_sugeridas": acciones, "needs_update": needs_update}
+    return {
+        "score_total": resultado.score_total,
+        "decision": resultado.decision,
+        "factores_score": factores_score,
+        "factores_detail": factores_detail,
+        "acciones_sugeridas": acciones,
+        "needs_update": needs_update,
+    }
