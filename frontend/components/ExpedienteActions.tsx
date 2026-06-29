@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type Expediente } from "@/lib/api-client";
 import { revalidateExpedientes } from "@/hooks/use-expedientes";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,8 +51,11 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
       });
       setEditOpen(false);
       await revalidateExpedientes();
+      toast.success("Expediente actualizado");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+      const msg = err instanceof Error ? err.message : "Error al guardar";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -64,11 +68,14 @@ export function ExpedienteActions({ expediente, redirectOnDelete = false }: Prop
       await api.deleteExpediente(expediente.id);
       setDeleteOpen(false);
       await revalidateExpedientes();
+      toast.success("Expediente eliminado");
       if (redirectOnDelete) {
         router.push("/");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al eliminar");
+      const msg = err instanceof Error ? err.message : "Error al eliminar";
+      setError(msg);
+      toast.error(msg);
       setDeleting(false);
     }
   }

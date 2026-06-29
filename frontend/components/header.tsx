@@ -14,12 +14,6 @@ export function Header() {
           >
             Expedientes
           </Link>
-          <Link
-            href="/admin"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Admin SAT
-          </Link>
         </nav>
       </div>
     </header>

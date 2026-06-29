@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
 import { revalidateExpedientes } from "@/hooks/use-expedientes";
+import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 
 export function EvaluateButton({ expedienteId }: { expedienteId: string }) {
@@ -16,9 +17,12 @@ export function EvaluateButton({ expedienteId }: { expedienteId: string }) {
     try {
       await api.evaluate(expedienteId);
       await revalidateExpedientes();
+      toast.success("Evaluación completada");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al evaluar");
+      const msg = err instanceof Error ? err.message : "Error al evaluar";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
