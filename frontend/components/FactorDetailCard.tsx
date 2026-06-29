@@ -148,9 +148,9 @@ export function FactorDetailCard({
         </div>
       )}
 
-      {/* Legal citation */}
+      {/* Legal citation — expanded by default for high-severity factors */}
       {factor.legal_ref && (
-        <details className="group">
+        <details className="group" open={isCritical || factor.points >= 35}>
           <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none list-none">
             <BookOpen className="size-3.5 shrink-0" />
             <span>Fundamento legal</span>
