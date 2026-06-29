@@ -54,11 +54,13 @@ def get_latest_evaluation(expediente_id: str, supabase: Client = Depends(get_sup
     if not result.data:
         return None
     row = result.data[0]
+    summary = row.get("summary") or {}
     return {
         "decision": row["decision"],
         "score_total": row["score_total"],
-        "factores_score": {code: 100 for code in (row.get("critical_blocks") or [])},
-        "acciones_sugeridas": (row.get("summary") or {}).get("acciones_sugeridas", []),
+        "factores_score": summary.get("factores_score", {}),
+        "factores_detail": summary.get("factores_detail", []),
+        "acciones_sugeridas": summary.get("acciones_sugeridas", []),
         "evaluated_at": row["created_at"],
     }
 

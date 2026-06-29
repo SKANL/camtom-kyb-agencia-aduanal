@@ -1,27 +1,15 @@
 import Link from "next/link";
 import { api } from "@/lib/api-client";
-import { Badge } from "@/components/ui/badge";
+import { ScoreGauge } from "@/components/ScoreGauge";
+import { FactorDetailCard } from "@/components/FactorDetailCard";
+import { StepperHeader } from "@/components/StepperHeader";
 import { EvaluateButton } from "./EvaluateButton";
 
-const DECISION_META: Record<
-  string,
-  { label: string; badgeClass: string; desc: string }
-> = {
-  safe: {
-    label: "Safe",
-    badgeClass: "bg-success text-background",
-    desc: "Score dentro del umbral de operación normal. Sin alertas en listas SAT.",
-  },
-  review_required: {
-    label: "Review required",
-    badgeClass: "bg-warning text-background",
-    desc: "Existen factores que requieren revisión adicional antes de operar.",
-  },
-  high_risk: {
-    label: "High risk",
-    badgeClass: "bg-destructive text-background",
-    desc: "Score supera el umbral crítico. No operar hasta resolver las alertas.",
-  },
+const ACCION_CATEGORY_ICON: Record<string, string> = {
+  sat: "🚫",
+  discrepancia: "⚠️",
+  completitud: "📄",
+  otro: "›",
 };
 
 const FACTOR_LABELS: Record<string, string> = {
@@ -125,131 +113,107 @@ export default async function ReportePage({
     );
   }
 
-  const decisionMeta = expediente.decision
-    ? DECISION_META[expediente.decision]
-    : null;
-
-  const factores = evaluation?.factores_score
-    ? Object.entries(evaluation.factores_score)
-    : [];
-  const maxPoints = factores.length
-    ? Math.max(...factores.map(([, v]) => v), 1)
+  const factoresDetail = evaluation?.factores_detail ?? [];
+  const factoresConRiesgo = factoresDetail
+    .filter((f) => f.points > 0)
+    .sort((a, b) => b.points - a.points);
+  const factoresSinRiesgo = factoresDetail.filter((f) => f.points === 0);
+  const maxPoints = factoresConRiesgo.length
+    ? Math.max(...factoresConRiesgo.map((f) => f.points))
     : 100;
-
-  const factoresConPuntos = factores.filter(([, v]) => v > 0);
-  const factoresSinPuntos = factores.filter(([, v]) => v === 0);
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8">
+      <StepperHeader currentStep={4} />
+
       {/* Breadcrumb */}
       <div className="mb-6">
-        <Link
-          href={`/expedientes/${id}`}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <Link href={`/expedientes/${id}`} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
           ← {expediente.razon_social}
         </Link>
         <h1 className="text-2xl font-bold mt-2">Reporte KYB</h1>
+        <p className="text-muted-foreground text-sm mt-1 font-mono">{expediente.rfc}</p>
       </div>
 
       {/* Score hero */}
       <div className="rounded-xl border border-border bg-card p-6 mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-              Decisión
+        {evaluation ? (
+          <ScoreGauge score={evaluation.score_total} decision={evaluation.decision} />
+        ) : (
+          <div className="text-center py-4 space-y-3">
+            <p className="text-muted-foreground text-sm">
+              Aún no hay evaluación. Cargá los documentos y ejecutá la evaluación KYB.
             </p>
-            {decisionMeta ? (
-              <>
-                <Badge className={`text-base px-3 py-1 ${decisionMeta.badgeClass}`}>
-                  {decisionMeta.label}
-                </Badge>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  {decisionMeta.desc}
-                </p>
-              </>
-            ) : (
-              <p className="text-muted-foreground">Sin evaluar</p>
-            )}
+            <EvaluateButton expedienteId={id} />
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-              Score de riesgo
-            </p>
-            <p className="text-5xl font-bold text-primary leading-none">
-              {expediente.score_total ?? "—"}
-            </p>
-            {expediente.score_total !== null && (
-              <p className="text-sm text-muted-foreground mt-1">puntos</p>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Factors breakdown */}
-      {factores.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 mb-6">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-            Desglose de factores de riesgo
+      {/* Risk factors */}
+      {factoresConRiesgo.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Factores de riesgo detectados ({factoresConRiesgo.length})
           </h2>
-
-          {factoresConPuntos.length > 0 && (
-            <div className="mb-4">
-              <p className="text-xs text-muted-foreground mb-2">
-                Factores que suman puntos de riesgo
-              </p>
-              <div className="divide-y divide-border">
-                {factoresConPuntos.map(([code, points]) => (
-                  <FactorRow
-                    key={code}
-                    code={code}
-                    points={points}
-                    maxPoints={maxPoints}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {factoresSinPuntos.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">
-                Sin impacto en score
-              </p>
-              <div className="divide-y divide-border">
-                {factoresSinPuntos.map(([code, points]) => (
-                  <FactorRow
-                    key={code}
-                    code={code}
-                    points={points}
-                    maxPoints={maxPoints}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          <div className="space-y-3">
+            {factoresConRiesgo.map((f) => (
+              <FactorDetailCard key={f.factor_code} factor={f} maxPoints={maxPoints} />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Acciones sugeridas */}
-      {evaluation?.acciones_sugeridas &&
-        evaluation.acciones_sugeridas.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6 mb-6">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Acciones sugeridas
+      {evaluation?.acciones_sugeridas && evaluation.acciones_sugeridas.length > 0 && (
+        <section className="mb-6">
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+              Acciones requeridas ({evaluation.acciones_sugeridas.length})
             </h2>
-            <ul className="space-y-2">
-              {evaluation.acciones_sugeridas.map((accion) => (
-                <li key={accion} className="flex items-start gap-2 text-sm">
-                  <span className="text-warning mt-0.5 shrink-0">›</span>
-                  <span>{accion}</span>
-                </li>
-              ))}
+            <ul className="space-y-4">
+              {evaluation.acciones_sugeridas.map((accion, i) => {
+                const relatedFactor = factoresConRiesgo.find((f) =>
+                  accion.toLowerCase().includes(f.factor_code.split("_")[0])
+                );
+                const icon = relatedFactor
+                  ? ACCION_CATEGORY_ICON[relatedFactor.category]
+                  : "›";
+                return (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="shrink-0 mt-0.5 text-base">{icon}</span>
+                    <div className="space-y-1">
+                      <p className="text-sm">{accion}</p>
+                      {relatedFactor?.legal_ref && (
+                        <p className="text-xs text-muted-foreground">
+                          § {relatedFactor.legal_ref.split("—")[0].trim()}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
-        )}
+        </section>
+      )}
 
-      {/* Datos del expediente */}
+      {/* Factors with 0 points (collapsed) */}
+      {factoresSinRiesgo.length > 0 && (
+        <section className="mb-6">
+          <details>
+            <summary className="text-xs text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors mb-2 select-none">
+              Factores verificados sin impacto en score ({factoresSinRiesgo.length})
+            </summary>
+            <div className="mt-3 space-y-3">
+              {factoresSinRiesgo.map((f) => (
+                <FactorDetailCard key={f.factor_code} factor={f} maxPoints={maxPoints} />
+              ))}
+            </div>
+          </details>
+        </section>
+      )}
+
+      {/* Expediente metadata */}
       <div className="rounded-xl border border-border bg-card p-6 mb-6">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Datos del expediente
@@ -285,13 +249,19 @@ export default async function ReportePage({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <EvaluateButton expedienteId={id} />
         <Link
           href={`/expedientes/${id}`}
           className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted transition-all"
         >
           Ver documentos
+        </Link>
+        <Link
+          href="/"
+          className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted transition-all"
+        >
+          ← Dashboard
         </Link>
       </div>
     </main>

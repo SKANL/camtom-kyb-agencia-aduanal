@@ -1,11 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from api.deps import get_supabase_client
+from infrastructure.ai.classify import clasificar_documento
 from infrastructure.ai.extract import extraer_campos
-from infrastructure.ai.pdf import extraer_texto
+from infrastructure.ai.pdf import extraer_texto, extraer_texto_de_bytes
 from infrastructure.ai.schemas import SCHEMA_REGISTRY
 from infrastructure.storage.supabase_storage import crear_signed_upload_url
 
@@ -68,3 +69,35 @@ def revisar_documento(documento_id: str, fields: dict, supabase=Depends(get_supa
         {"fields": fields, "extraction_status": "human_reviewed"}
     ).eq("id", documento_id).execute()
     return {"extraction_status": "human_reviewed"}
+
+
+_CLASSIFY_LABELS = {
+    "csf": "Constancia de Situación Fiscal",
+    "acta_constitutiva": "Acta Constitutiva",
+    "comprobante_domicilio": "Comprobante de Domicilio",
+    "identificacion_rep_legal": "ID Representante Legal",
+    "poder_notarial": "Poder Notarial",
+    "encargo_conferido": "Encargo Conferido",
+    "manifestacion_protesta": "Manifestación bajo Protesta",
+    "unknown": "Sin clasificar",
+}
+
+
+_MAX_CLASSIFY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@router.post("/classify")
+async def classify_documento(file: UploadFile = File(...)):
+    """Classify a PDF by content without creating a DB record."""
+    content = await file.read(_MAX_CLASSIFY_BYTES + 1)
+    if len(content) > _MAX_CLASSIFY_BYTES:
+        raise HTTPException(status_code=413, detail="Archivo demasiado grande (máx 10 MB)")
+    texto = extraer_texto_de_bytes(content)
+    if not texto.strip():
+        return {"doc_type": "unknown", "confidence": "low", "suggested_label": "Sin texto extraído"}
+    result = clasificar_documento(texto)
+    return {
+        "doc_type": result["doc_type"],
+        "confidence": result["confidence"],
+        "suggested_label": _CLASSIFY_LABELS.get(result["doc_type"], "Sin clasificar"),
+    }

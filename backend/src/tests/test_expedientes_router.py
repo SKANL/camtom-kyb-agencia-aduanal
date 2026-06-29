@@ -116,7 +116,21 @@ def test_get_latest_evaluation_returns_shaped_evaluation(client, fake_supabase):
             "decision": "safe",
             "score_total": 80,
             "critical_blocks": ["F_SAT_ART69"],
-            "summary": {"acciones_sugeridas": ["Verificar domicilio fiscal"]},
+            "summary": {
+                "acciones_sugeridas": ["Verificar domicilio fiscal"],
+                "factores_score": {"F_SAT_ART69": -100},
+                "factores_detail": [
+                    {
+                        "factor_code": "F_SAT_ART69",
+                        "points": -100,
+                        "is_critical_block": True,
+                        "detail": "RFC en lista Art. 69",
+                        "evidence": {},
+                        "legal_ref": "",
+                        "category": "sat",
+                    }
+                ],
+            },
             "created_at": "2026-06-28T10:00:00Z",
         }
     ]
@@ -126,6 +140,7 @@ def test_get_latest_evaluation_returns_shaped_evaluation(client, fake_supabase):
     assert data["decision"] == "safe"
     assert data["score_total"] == 80
     assert "F_SAT_ART69" in data["factores_score"]
+    assert data["factores_detail"][0]["factor_code"] == "F_SAT_ART69"
     assert data["acciones_sugeridas"] == ["Verificar domicilio fiscal"]
     assert data["evaluated_at"] == "2026-06-28T10:00:00Z"
 
