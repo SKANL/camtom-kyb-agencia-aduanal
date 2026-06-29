@@ -1,5 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  FolderOpen, CheckCircle2, XCircle, Loader2, AlertTriangle, X, ChevronRight, FileText,
+} from "lucide-react";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +25,7 @@ type FileState = {
   confidence: "high" | "low";
   suggestedLabel: string;
   errorMsg?: string;
+  documentoId?: string;
 };
 
 type Props = {
@@ -29,10 +34,38 @@ type Props = {
   onAllDone?: () => void;
 };
 
+async function collectPdfs(entry: FileSystemEntry): Promise<File[]> {
+  if (entry.isFile) {
+    const fe = entry as FileSystemFileEntry;
+    return new Promise((resolve) => {
+      fe.file((f) => {
+        if (f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")) {
+          resolve([f]);
+        } else {
+          resolve([]);
+        }
+      });
+    });
+  }
+  if (entry.isDirectory) {
+    const de = entry as FileSystemDirectoryEntry;
+    const reader = de.createReader();
+    return new Promise((resolve) => {
+      reader.readEntries(async (entries) => {
+        const nested = await Promise.all(entries.map(collectPdfs));
+        resolve(nested.flat());
+      });
+    });
+  }
+  return [];
+}
+
 export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () => {} }: Props) {
+  const router = useRouter();
   const [files, setFiles] = useState<FileState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const classifyFiles = useCallback(async (newFiles: File[]) => {
@@ -47,11 +80,12 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
       status: "classifying",
       docType: "unknown",
       confidence: "low",
-      suggestedLabel: "Clasificando…",
+      suggestedLabel: "Clasificando...",
     }));
 
+    // Capture keys before the async gap so we can match results back
+    const pendingKeys = pending.map((p) => p.key);
     setFiles((prev) => [...prev, ...pending]);
-    const startIdx = files.length; // capture before await
 
     const results = await Promise.all(
       pdfs.map((f) =>
@@ -66,8 +100,9 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
     setFiles((prev) => {
       const next = [...prev];
       results.forEach((result, i) => {
-        const idx = startIdx + i;
-        if (next[idx]) {
+        const key = pendingKeys[i];
+        const idx = next.findIndex((f) => f.key === key);
+        if (idx !== -1) {
           next[idx] = {
             ...next[idx],
             status: "classified",
@@ -79,11 +114,22 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
       });
       return next;
     });
-  }, [files.length]);
+  }, []);
 
-  function onDrop(e: React.DragEvent) {
+  async function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
+    // Use items API to support folder drops
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const entries = Array.from(e.dataTransfer.items)
+        .map((item) => item.webkitGetAsEntry())
+        .filter((entry): entry is FileSystemEntry => entry !== null);
+      const allFiles = (await Promise.all(entries.map(collectPdfs))).flat();
+      if (allFiles.length) {
+        classifyFiles(allFiles);
+        return;
+      }
+    }
     classifyFiles(Array.from(e.dataTransfer.files));
   }
 
@@ -94,54 +140,54 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
     }
   }
 
-  function setDocType(idx: number, docType: string) {
+  function setDocType(key: string, docType: string) {
     const label = DOC_TYPE_OPTIONS.find((o) => o.value === docType)?.label ?? "Sin clasificar";
     setFiles((prev) =>
-      prev.map((f, i) =>
-        i === idx ? { ...f, docType, suggestedLabel: label, confidence: "high" } : f
-      )
+      prev.map((f) => f.key === key ? { ...f, docType, suggestedLabel: label, confidence: "high" } : f)
     );
   }
 
-  function removeFile(idx: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  function removeFile(key: string) {
+    setFiles((prev) => prev.filter((f) => f.key !== key));
   }
 
   async function processAll() {
-    const toProcess = files
-      .map((f, i) => ({ ...f, idx: i }))
-      .filter((f) => f.status === "classified" && f.docType !== "unknown");
-
+    const toProcess = files.filter((f) => f.status === "classified" && f.docType !== "unknown");
     if (!toProcess.length) return;
     setProcessing(true);
 
     await Promise.all(
-      toProcess.map(async ({ file, docType, idx }) => {
-        const update = (status: FileState["status"], errorMsg?: string) =>
+      toProcess.map(async ({ key, file, docType }) => {
+        const update = (status: FileState["status"], extra?: Partial<FileState>) =>
           setFiles((prev) =>
-            prev.map((f, i) => (i === idx ? { ...f, status, errorMsg } : f))
+            prev.map((f) => f.key === key ? { ...f, status, ...extra } : f)
           );
-
         try {
           update("uploading");
-          const { documento_id, signed_url } = await api.crearDocumento(
-            expedienteId,
-            docType,
-            "uploaded"
-          );
+          const { documento_id, signed_url } = await api.crearDocumento(expedienteId, docType, "uploaded");
           if (signed_url) {
             await fetch(signed_url, { method: "PUT", body: file });
           }
-          update("extracting");
+          update("extracting", { documentoId: documento_id });
           await api.extractDocumento(documento_id);
-          update("done");
+          update("done", { documentoId: documento_id });
         } catch (err) {
-          update("error", err instanceof Error ? err.message : "Error al procesar");
+          update("error", { errorMsg: err instanceof Error ? err.message : "Error al procesar" });
         }
       })
     );
 
     setProcessing(false);
+  }
+
+  async function handleEvaluate() {
+    setEvaluating(true);
+    try {
+      await api.evaluate(expedienteId);
+      router.push(`/expedientes/${expedienteId}/reporte`);
+    } catch {
+      setEvaluating(false);
+    }
   }
 
   useEffect(() => {
@@ -150,12 +196,18 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
     }
   }, [files, onAllDone]);
 
-  const readyToProcess = files.some(
-    (f) => f.status === "classified" && f.docType !== "unknown"
-  );
-  const allProcessed =
-    files.length > 0 &&
-    files.every((f) => f.status === "done" || f.status === "error");
+  const readyToProcess = files.some((f) => f.status === "classified" && f.docType !== "unknown");
+  const allProcessed = files.length > 0 && files.every((f) => f.status === "done" || f.status === "error");
+  const firstExtractableDocId = files.find((f) => f.status === "done" && f.documentoId)?.documentoId;
+
+  function StatusIcon({ f }: { f: FileState }) {
+    if (f.status === "done") return <CheckCircle2 className="size-4 text-success shrink-0" />;
+    if (f.status === "error") return <XCircle className="size-4 text-destructive shrink-0" />;
+    if (f.status === "classifying" || f.status === "uploading" || f.status === "extracting")
+      return <Loader2 className="size-4 text-muted-foreground shrink-0 animate-spin" />;
+    if (f.confidence === "high") return <CheckCircle2 className="size-4 text-primary shrink-0" />;
+    return <AlertTriangle className="size-4 text-warning shrink-0" />;
+  }
 
   return (
     <div className="space-y-4">
@@ -172,12 +224,14 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
             : "border-border hover:border-primary/50 hover:bg-muted/30",
         ].join(" ")}
       >
-        <div className="text-4xl">📂</div>
+        <div className="flex justify-center">
+          <FolderOpen className="size-10 text-muted-foreground" />
+        </div>
         <p className="font-medium text-sm">
           Arrastrá tus PDFs aquí, o hacé clic para seleccionar
         </p>
         <p className="text-xs text-muted-foreground">
-          Podés soltar varios archivos a la vez — la IA los clasifica automáticamente por contenido
+          Podés soltar una carpeta completa — la IA clasifica cada archivo automáticamente
         </p>
         <input
           ref={inputRef}
@@ -192,7 +246,7 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
       {/* File list */}
       {files.length > 0 && (
         <div className="space-y-2">
-          {files.map((f, idx) => (
+          {files.map((f) => (
             <div
               key={f.key}
               className={[
@@ -204,18 +258,9 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
                   : "border-border bg-card",
               ].join(" ")}
             >
-              <span className="text-base shrink-0 w-5 text-center">
-                {f.status === "done"
-                  ? "✓"
-                  : f.status === "error"
-                  ? "✗"
-                  : f.status === "classifying" || f.status === "uploading" || f.status === "extracting"
-                  ? "⟳"
-                  : f.confidence === "high"
-                  ? "✓"
-                  : "⚠"}
-              </span>
+              <StatusIcon f={f} />
 
+              <FileText className="size-3.5 text-muted-foreground shrink-0" />
               <span className="font-mono text-xs text-muted-foreground truncate min-w-0 flex-1">
                 {f.file.name}
               </span>
@@ -223,49 +268,39 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
               {f.status === "classified" ? (
                 <select
                   value={f.docType}
-                  onChange={(e) => setDocType(idx, e.target.value)}
+                  onChange={(e) => setDocType(f.key, e.target.value)}
                   className="text-xs rounded-md border border-border bg-background px-2 py-1 shrink-0"
                 >
                   <option value="unknown">Sin clasificar</option>
                   {DOC_TYPE_OPTIONS.filter(
                     (o) => !existingDocTypes.includes(o.value) || o.value === f.docType
                   ).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
+                    <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
               ) : (
-                <span
-                  className={[
-                    "text-xs shrink-0",
-                    f.status === "done"
-                      ? "text-success"
-                      : f.status === "error"
-                      ? "text-destructive"
-                      : "text-muted-foreground animate-pulse",
-                  ].join(" ")}
-                >
-                  {f.status === "error"
-                    ? f.errorMsg
-                    : f.status === "classifying"
-                    ? "Clasificando con IA…"
-                    : f.status === "uploading"
-                    ? "Subiendo…"
-                    : f.status === "extracting"
-                    ? "Extrayendo campos con IA…"
-                    : f.status === "done"
-                    ? "Listo ✓"
+                <span className={[
+                  "text-xs shrink-0",
+                  f.status === "done" ? "text-success"
+                    : f.status === "error" ? "text-destructive"
+                    : "text-muted-foreground animate-pulse",
+                ].join(" ")}>
+                  {f.status === "error" ? f.errorMsg
+                    : f.status === "classifying" ? "Clasificando con IA..."
+                    : f.status === "uploading" ? "Subiendo..."
+                    : f.status === "extracting" ? "Extrayendo campos con IA..."
+                    : f.status === "done" ? "Procesado"
                     : ""}
                 </span>
               )}
 
               {(f.status === "classified" || f.status === "error") && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
-                  className="text-muted-foreground hover:text-foreground shrink-0 text-xs ml-1"
+                  onClick={(e) => { e.stopPropagation(); removeFile(f.key); }}
+                  className="text-muted-foreground hover:text-foreground shrink-0 ml-1"
+                  aria-label="Eliminar"
                 >
-                  ✕
+                  <X className="size-3.5" />
                 </button>
               )}
             </div>
@@ -278,19 +313,44 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
         <Button
           onClick={processAll}
           disabled={!readyToProcess || processing}
-          className="w-full bg-primary text-primary-foreground"
+          className="w-full"
         >
-          {processing ? "Procesando documentos…" : "Procesar todos los documentos"}
+          {processing ? (
+            <><Loader2 className="size-4 mr-2 animate-spin" /> Procesando documentos...</>
+          ) : (
+            "Procesar todos los documentos"
+          )}
         </Button>
       )}
 
-      {/* Done state */}
+      {/* Post-processing CTA */}
       {allProcessed && (
-        <div className="rounded-xl border border-success/40 bg-success/5 p-4 text-center space-y-2">
-          <p className="text-sm font-medium text-success">✓ Todos los documentos procesados</p>
+        <div className="rounded-xl border border-success/40 bg-success/5 p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-success shrink-0" />
+            <p className="text-sm font-semibold text-success">Todos los documentos procesados</p>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Revisá los campos extraídos en cada documento, luego ejecutá la evaluación KYB.
+            La IA extrajo los campos de cada documento. Revisá y confirmá los datos antes de ejecutar la evaluación KYB.
           </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            {firstExtractableDocId && (
+              <a
+                href={`/expedientes/${expedienteId}/revisar?documento_id=${firstExtractableDocId}`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted transition-all"
+              >
+                Revisar campos extraídos
+                <ChevronRight className="size-4" />
+              </a>
+            )}
+            <Button onClick={handleEvaluate} disabled={evaluating} className="flex-1 sm:flex-none">
+              {evaluating ? (
+                <><Loader2 className="size-4 mr-2 animate-spin" /> Evaluando...</>
+              ) : (
+                <>Ejecutar evaluación KYB <ChevronRight className="size-4 ml-1" /></>
+              )}
+            </Button>
+          </div>
         </div>
       )}
     </div>
