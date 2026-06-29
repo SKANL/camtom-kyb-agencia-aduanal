@@ -1,8 +1,11 @@
 import json
+import logging
 
 from langchain_core.messages import HumanMessage
 
 from infrastructure.ai.groq_client import get_groq_model
+
+logger = logging.getLogger(__name__)
 
 VALID_DOC_TYPES = {
     "csf", "acta_constitutiva", "comprobante_domicilio",
@@ -49,6 +52,9 @@ def clasificar_documento(texto: str) -> dict:
         if doc_type not in VALID_DOC_TYPES:
             doc_type = "unknown"
             confidence = "low"
+        if confidence not in ("high", "low"):
+            confidence = "low"
         return {"doc_type": doc_type, "confidence": confidence}
-    except Exception:
+    except Exception as exc:
+        logger.warning("clasificar_documento failed: %s", exc, exc_info=True)
         return {"doc_type": "unknown", "confidence": "low"}

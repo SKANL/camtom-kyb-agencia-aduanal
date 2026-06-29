@@ -1,5 +1,6 @@
 import io
 
+import pdfplumber
 from pypdf import PdfReader
 from pdf2image import convert_from_path
 from infrastructure.ai.ocr import ocr_imagen
@@ -24,7 +25,6 @@ def extraer_texto_de_bytes(content: bytes) -> str:
     if len(content) > _MAX_PDF_BYTES:
         return ""
     try:
-        import pdfplumber
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             pages = pdf.pages[:_MAX_PDF_PAGES]
             return "\n".join(page.extract_text() or "" for page in pages)
