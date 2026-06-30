@@ -31,6 +31,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   poder_notarial: "Poder Notarial",
   encargo_conferido: "Encargo Conferido",
   manifestacion_protesta: "Manifestación bajo Protesta",
+  rfc: "Cédula de Identificación Fiscal",
 };
 
 const EXTRACTION_STATUS_BADGE: Record<string, { label: string; className: string }> = {
