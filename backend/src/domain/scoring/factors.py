@@ -58,13 +58,23 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         fields = doc.get("fields") or {}
         if any(v in (None, "") for v in fields.values()):
             factores.append(Factor("doc_data_incomplete", 15, False, f"El documento {doc['doc_type']} no aportó todos los campos obligatorios.", evidence={"documento_id": doc["id"]}))
-        if doc["doc_type"] == "comprobante_domicilio" and doc.get("fecha_emision"):
-            dias = (hoy - doc["fecha_emision"]).days
+
+        fecha_str = fields.get("fecha_emision")
+        fecha = None
+        if fecha_str:
+            try:
+                from datetime import date as _date
+                fecha = _date.fromisoformat(str(fecha_str))
+            except (ValueError, TypeError):
+                fecha = None
+
+        if doc["doc_type"] == "comprobante_domicilio" and fecha:
+            dias = (hoy - fecha).days
             if dias > VIGENCIA_DIAS["comprobante_domicilio"]:
-                factores.append(Factor("doc_expired", 20, False, f"Comprobante de domicilio con {dias} días de antigüedad."))
-        if doc["doc_type"] == "csf" and doc.get("fecha_emision"):
-            if (doc["fecha_emision"].year, doc["fecha_emision"].month) != (hoy.year, hoy.month):
-                factores.append(Factor("csf_stale", 25, False, "La CSF no corresponde al mes calendario vigente."))
+                factores.append(Factor("doc_expired", 20, False, f"Comprobante de domicilio con {dias} días de antigüedad (límite: 90 días).", evidence={"documento_id": doc["id"], "dias_antiguedad": dias}))
+        if doc["doc_type"] == "csf" and fecha:
+            if (fecha.year, fecha.month) != (hoy.year, hoy.month):
+                factores.append(Factor("csf_stale", 25, False, f"La CSF es del {fecha.strftime('%B %Y')} — se requiere del mes en curso ({hoy.strftime('%B %Y')}).", evidence={"documento_id": doc["id"], "fecha_csf": str(fecha)}))
         if doc["doc_type"] == "manifestacion_protesta" and not fields.get("declara_no_69b_49bis"):
             factores.append(Factor("manifestacion_incompleta", 20, False, "La Manifestación bajo Protesta no confirma la cláusula de los Art. 69-B / 49 Bis CFF."))
 

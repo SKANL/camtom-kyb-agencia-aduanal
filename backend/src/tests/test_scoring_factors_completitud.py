@@ -6,13 +6,75 @@ def test_doc_missing_por_cada_tipo_ausente():
     assert [f.factor_code for f in factores].count("doc_missing") == 8
 
 def test_comprobante_domicilio_vencido():
-    documentos = [{"id": "1", "doc_type": "comprobante_domicilio", "extraction_status": "human_reviewed", "fields": {"domicilio": "x"}, "fecha_emision": date(2026, 1, 1)}]
+    # fecha_emision must be inside fields (ISO string)
+    documentos = [{"id": "1", "doc_type": "comprobante_domicilio", "extraction_status": "human_reviewed", "fields": {"domicilio": "x", "fecha_emision": "2026-01-01"}}]
     assert any(f.factor_code == "doc_expired" for f in factores_completitud(documentos, [], date(2026, 6, 28)))
 
 def test_csf_fuera_de_mes_vigente():
-    documentos = [{"id": "1", "doc_type": "csf", "extraction_status": "human_reviewed", "fields": {"rfc": "x"}, "fecha_emision": date(2026, 5, 1)}]
+    # fecha_emision must be inside fields (ISO string)
+    documentos = [{"id": "1", "doc_type": "csf", "extraction_status": "human_reviewed", "fields": {"rfc": "x", "fecha_emision": "2026-05-01"}}]
     assert any(f.factor_code == "csf_stale" for f in factores_completitud(documentos, [], date(2026, 6, 28)))
 
 def test_acta_presente_sin_socios_dispara_socios_incompletos():
-    documentos = [{"id": "1", "doc_type": "acta_constitutiva", "extraction_status": "human_reviewed", "fields": {"razon_social": "x"}, "fecha_emision": None}]
+    documentos = [{"id": "1", "doc_type": "acta_constitutiva", "extraction_status": "human_reviewed", "fields": {"razon_social": "x"}}]
     assert any(f.factor_code == "socios_incompletos" for f in factores_completitud(documentos, [], date(2026, 6, 28)))
+
+
+def _make_doc(doc_type, fields=None, status="human_reviewed"):
+    return {
+        "id": "test-id",
+        "doc_type": doc_type,
+        "extraction_status": status,
+        "fields": fields or {},
+    }
+
+def test_doc_expired_fires_when_fecha_in_fields():
+    """comprobante_domicilio with fecha_emision > 90 days ago in fields should fire doc_expired."""
+    all_doc_types = [
+        "acta_constitutiva", "identificacion_rep_legal", "poder_notarial",
+        "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
+    ]
+    docs = [_make_doc(t) for t in all_doc_types if t != "comprobante_domicilio"]
+    old_date = "2025-01-01"  # > 90 days ago from any 2026 test date
+    docs.append(_make_doc("comprobante_domicilio", {"fecha_emision": old_date}))
+    hoy = date(2026, 6, 29)
+    factores = factores_completitud(docs, [], hoy)
+    codes = [f.factor_code for f in factores]
+    assert "doc_expired" in codes, f"Expected doc_expired in {codes}"
+
+def test_doc_expired_does_not_fire_for_recent_comprobante():
+    all_doc_types = [
+        "acta_constitutiva", "identificacion_rep_legal", "poder_notarial",
+        "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
+    ]
+    docs = [_make_doc(t) for t in all_doc_types if t != "comprobante_domicilio"]
+    docs.append(_make_doc("comprobante_domicilio", {"fecha_emision": "2026-06-01"}))
+    hoy = date(2026, 6, 29)
+    factores = factores_completitud(docs, [], hoy)
+    codes = [f.factor_code for f in factores]
+    assert "doc_expired" not in codes
+
+def test_csf_stale_fires_when_fecha_in_fields():
+    """CSF with fecha_emision from last month should fire csf_stale."""
+    all_doc_types = [
+        "acta_constitutiva", "identificacion_rep_legal", "poder_notarial",
+        "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
+    ]
+    docs = [_make_doc(t) for t in all_doc_types if t != "csf"]
+    docs.append(_make_doc("csf", {"fecha_emision": "2026-05-01"}))  # last month
+    hoy = date(2026, 6, 29)
+    factores = factores_completitud(docs, [], hoy)
+    codes = [f.factor_code for f in factores]
+    assert "csf_stale" in codes, f"Expected csf_stale in {codes}"
+
+def test_csf_stale_does_not_fire_for_current_month():
+    all_doc_types = [
+        "acta_constitutiva", "identificacion_rep_legal", "poder_notarial",
+        "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
+    ]
+    docs = [_make_doc(t) for t in all_doc_types if t != "csf"]
+    docs.append(_make_doc("csf", {"fecha_emision": "2026-06-01"}))  # current month
+    hoy = date(2026, 6, 29)
+    factores = factores_completitud(docs, [], hoy)
+    codes = [f.factor_code for f in factores]
+    assert "csf_stale" not in codes
