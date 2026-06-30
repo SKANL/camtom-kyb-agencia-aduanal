@@ -9,13 +9,29 @@ PROMPT_EXTRACCION = (
     "datos que no esten en el texto.\n\nTexto del documento:\n{texto}"
 )
 
+# Per-doc-type hints appended to the base prompt to guide structured field extraction
+DOC_TYPE_HINTS: dict[str, str] = {
+    "manifestacion_protesta": (
+        "\n\nINSTRUCCION ESPECIAL para el campo 'declara_no_69b_49bis': "
+        "Devuelve TRUE si el documento contiene clausulas que declaren EXPLICITAMENTE "
+        "que la empresa NO esta en los supuestos del Art. 69-B CFF (EFOS) ni en el "
+        "Art. 49 Bis CFF (frases como: 'no se encuentra en los supuestos', "
+        "'no ha transmitido indebidamente perdidas fiscales', "
+        "'no realiza operaciones de contrabando tecnico'). "
+        "Devuelve FALSE si el documento afirma que SI esta en esas listas. "
+        "Devuelve null si el documento no menciona el Art. 69-B ni el Art. 49 Bis CFF."
+    ),
+}
+
 
 def extraer_campos(supabase_client, doc_type: str, texto: str) -> dict:
     schema_cls = SCHEMA_REGISTRY[doc_type]
+    hint = DOC_TYPE_HINTS.get(doc_type, "")
 
     def compute() -> dict:
-        modelo = get_groq_model().with_structured_output(schema_cls)
-        return modelo.invoke(PROMPT_EXTRACCION.format(texto=texto)).model_dump()
+        modelo = get_groq_model("extraction").with_structured_output(schema_cls)
+        prompt = (PROMPT_EXTRACCION + hint).format(texto=texto)
+        return modelo.invoke(prompt).model_dump()
 
     return call_with_harness(
         supabase_client,

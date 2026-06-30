@@ -40,3 +40,13 @@ def test_rfc_fields_all_optional():
     assert instance.rfc is None
     assert instance.razon_social is None
     assert instance.domicilio_fiscal is None
+
+
+def test_manifestacion_schema_default_is_none():
+    """declara_no_69b_49bis must default to None so absent != explicit negative."""
+    from infrastructure.ai.schemas import ManifestacionProtestaFields
+    m = ManifestacionProtestaFields()
+    assert m.declara_no_69b_49bis is None, (
+        f"Default should be None (not False) — got {m.declara_no_69b_49bis!r}. "
+        "A False default means an absent field is indistinguishable from explicit negation."
+    )

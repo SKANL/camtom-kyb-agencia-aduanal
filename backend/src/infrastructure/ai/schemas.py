@@ -37,7 +37,7 @@ class EncargoConferidoFields(BaseModel):
 
 
 class ManifestacionProtestaFields(BaseModel):
-    declara_no_69b_49bis: bool = False
+    declara_no_69b_49bis: bool | None = None
 
 
 class RfcFields(BaseModel):

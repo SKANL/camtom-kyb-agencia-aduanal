@@ -78,3 +78,27 @@ def test_csf_stale_does_not_fire_for_current_month():
     factores = factores_completitud(docs, [], hoy)
     codes = [f.factor_code for f in factores]
     assert "csf_stale" not in codes
+
+
+def test_manifestacion_true_no_penalty():
+    """declara_no_69b_49bis=True → manifestacion_incompleta must NOT fire."""
+    docs = [_make_doc("manifestacion_protesta", {"declara_no_69b_49bis": True})]
+    hoy = date(2026, 6, 30)
+    codes = [f.factor_code for f in factores_completitud(docs, [{"nombre": "x"}], hoy)]
+    assert "manifestacion_incompleta" not in codes, f"Should NOT fire with True: {codes}"
+
+
+def test_manifestacion_false_fires_penalty():
+    """declara_no_69b_49bis=False → manifestacion_incompleta must fire."""
+    docs = [_make_doc("manifestacion_protesta", {"declara_no_69b_49bis": False})]
+    hoy = date(2026, 6, 30)
+    codes = [f.factor_code for f in factores_completitud(docs, [{"nombre": "x"}], hoy)]
+    assert "manifestacion_incompleta" in codes, f"Should fire with False: {codes}"
+
+
+def test_manifestacion_none_fires_penalty():
+    """declara_no_69b_49bis=None (absent/uncertain) → manifestacion_incompleta must fire."""
+    docs = [_make_doc("manifestacion_protesta", {"declara_no_69b_49bis": None})]
+    hoy = date(2026, 6, 30)
+    codes = [f.factor_code for f in factores_completitud(docs, [{"nombre": "x"}], hoy)]
+    assert "manifestacion_incompleta" in codes, f"Should fire with None: {codes}"

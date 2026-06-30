@@ -59,69 +59,104 @@ export function ExpedientesList({ initialExpedientes }: { initialExpedientes: Ex
           <p className="text-sm">Crea el primero para comenzar el proceso KYB.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-card">
-              <tr>
-                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Cliente</th>
-                <th className="text-left px-4 py-3 text-muted-foreground font-medium">RFC</th>
-                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Estado</th>
-                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Decisión</th>
-                <th className="text-right px-4 py-3 text-muted-foreground font-medium">Score</th>
-                <th className="text-right px-4 py-3 text-muted-foreground font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expedientes.map((e) => {
-                const badge = e.decision ? DECISION_BADGE[e.decision] : null;
-                const statusLabel = STATUS_LABEL[e.status] ?? e.status;
-                return (
-                  <tr
-                    key={e.id}
-                    className="border-t border-border hover:bg-card/60 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-medium">
-                      <Link
-                        href={e.decision ? `/expedientes/${e.id}/reporte` : `/expedientes/${e.id}`}
-                        className="hover:text-primary transition-colors"
-                      >
-                        {e.razon_social}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{e.rfc}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{statusLabel}</td>
-                    <td className="px-4 py-3">
-                      {badge ? (
-                        <Badge className={badge.className}>{badge.label}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Sin evaluar</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm">
-                      <div className="flex items-center justify-end gap-3">
-                        {e.score_total !== null ? (
-                          <span className="text-primary font-bold">{e.score_total} pts</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="sm:hidden space-y-3">
+            {expedientes.map((exp) => {
+              const badge = exp.decision ? DECISION_BADGE[exp.decision] : null;
+              const statusLabel = STATUS_LABEL[exp.status] ?? exp.status;
+              return (
+                <div key={exp.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm leading-tight truncate">{exp.razon_social}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{exp.rfc}</p>
+                    </div>
+                    {badge ? (
+                      <Badge className={`shrink-0 ${badge.className}`}>{badge.label}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs shrink-0">Sin evaluar</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{statusLabel}</span>
+                    <Link
+                      href={exp.decision ? `/expedientes/${exp.id}/reporte` : `/expedientes/${exp.id}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Ver expediente →
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: existing table */}
+          <div className="hidden sm:block rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-card">
+                <tr>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Cliente</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">RFC</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Estado</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Decisión</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">Score</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expedientes.map((e) => {
+                  const badge = e.decision ? DECISION_BADGE[e.decision] : null;
+                  const statusLabel = STATUS_LABEL[e.status] ?? e.status;
+                  return (
+                    <tr
+                      key={e.id}
+                      className="border-t border-border hover:bg-card/60 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium">
                         <Link
                           href={e.decision ? `/expedientes/${e.id}/reporte` : `/expedientes/${e.id}`}
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                          title={e.decision ? "Ver reporte" : "Cargar documentos"}
+                          className="hover:text-primary transition-colors"
                         >
-                          <ChevronRight className="size-4" />
+                          {e.razon_social}
                         </Link>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <ExpedienteActions expediente={e} redirectOnDelete={false} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{e.rfc}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{statusLabel}</td>
+                      <td className="px-4 py-3">
+                        {badge ? (
+                          <Badge className={badge.className}>{badge.label}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Sin evaluar</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm">
+                        <div className="flex items-center justify-end gap-3">
+                          {e.score_total !== null ? (
+                            <span className="text-primary font-bold">{e.score_total} pts</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                          <Link
+                            href={e.decision ? `/expedientes/${e.id}/reporte` : `/expedientes/${e.id}`}
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                            title={e.decision ? "Ver reporte" : "Cargar documentos"}
+                          >
+                            <ChevronRight className="size-4" />
+                          </Link>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <ExpedienteActions expediente={e} redirectOnDelete={false} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   );

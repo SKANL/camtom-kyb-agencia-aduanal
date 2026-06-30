@@ -12,8 +12,8 @@ export function ScoreGauge({ score, decision }: { score: number; decision: strin
 
   return (
     <div className="space-y-3">
-      <div className="flex items-end justify-between gap-4">
-        <div>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Score de riesgo</p>
           <p className={`text-5xl font-bold leading-none ${config.textClass}`}>
             {score}

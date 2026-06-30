@@ -15,6 +15,7 @@ const DOC_TYPE_OPTIONS = [
   { value: "poder_notarial", label: "Poder Notarial" },
   { value: "encargo_conferido", label: "Encargo Conferido" },
   { value: "manifestacion_protesta", label: "Manifestación bajo Protesta" },
+  { value: "rfc", label: "Cédula de Identificación Fiscal" },
 ];
 
 type FileState = {
@@ -177,7 +178,6 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
     );
 
     setProcessing(false);
-    router.refresh();
   }
 
   async function handleEvaluate() {

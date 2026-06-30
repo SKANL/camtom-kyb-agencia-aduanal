@@ -2,6 +2,7 @@
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { mutate as globalMutate } from "swr";
 import { api, type Documento } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -243,6 +244,7 @@ export default function RevisarPage({
       }
       await api.reviewDocumento(documento_id, parsed);
       setSaved(true);
+      await globalMutate(`documentos-${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -256,7 +258,7 @@ export default function RevisarPage({
       const needReview = docs.filter(
         (d) =>
           d.id !== documento_id &&
-          (d.extraction_status === "extracted" || d.extraction_status === "not_applicable")
+          d.extraction_status === "extracted"
       );
       setRemainingDocs(needReview.map((d) => ({ id: d.id, doc_type: d.doc_type })));
     }).catch(() => {});
@@ -265,7 +267,7 @@ export default function RevisarPage({
   if (saved) {
     const nextDoc = remainingDocs[0];
     return (
-      <main className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-4 max-w-sm">
           <div className="w-12 h-12 rounded-full bg-success/15 flex items-center justify-center mx-auto">
             <CheckCircle2 className="size-6 text-success" />
@@ -323,7 +325,7 @@ export default function RevisarPage({
 
   if (!documento_id) {
     return (
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <Link
           href={`/expedientes/${id}`}
           className="text-sm text-muted-foreground hover:text-foreground"
@@ -338,7 +340,7 @@ export default function RevisarPage({
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <StepperHeader currentStep={3} expedienteId={id} />
       <div className="mb-6">
         <Link
@@ -357,7 +359,7 @@ export default function RevisarPage({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {[0, 1].map((i) => (
             <div key={i} className="h-64 rounded-xl bg-card animate-pulse" />
           ))}
