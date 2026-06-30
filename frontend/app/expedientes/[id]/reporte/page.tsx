@@ -105,7 +105,7 @@ export default function ReportePage({
 }) {
   const { id } = use(params);
 
-  const { expediente } = useExpediente(id);
+  const { expediente, isLoading: loadingExpediente } = useExpediente(id);
   const { evaluation, mutate: mutateEvaluation } = useLatestEvaluation(id);
   const { data: consultas = [] } = useSWR<ConsultaSat[]>(
     `consultas-sat-report-${id}`,
@@ -116,14 +116,23 @@ export default function ReportePage({
     () => api.listEvaluations(id).catch(() => [])
   );
 
+  if (loadingExpediente) {
+    return (
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="space-y-4">
+          <div className="h-8 w-64 rounded-lg bg-muted animate-pulse" />
+          <div className="h-48 rounded-xl bg-card border border-border animate-pulse" />
+          <div className="h-48 rounded-xl bg-card border border-border animate-pulse" />
+        </div>
+      </main>
+    );
+  }
   if (!expediente) {
     return (
       <main className="max-w-3xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <p className="text-muted-foreground">Expediente no encontrado.</p>
-          <Link href="/" className="text-primary hover:underline mt-4 block">
-            ← Volver
-          </Link>
+          <Link href="/" className="text-primary hover:underline mt-2 block">← Volver</Link>
         </div>
       </main>
     );

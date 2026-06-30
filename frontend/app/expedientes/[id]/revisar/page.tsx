@@ -256,7 +256,7 @@ export default function RevisarPage({
       const needReview = docs.filter(
         (d) =>
           d.id !== documento_id &&
-          (d.extraction_status === "extracted" || d.extraction_status === "not_applicable")
+          d.extraction_status === "extracted"
       );
       setRemainingDocs(needReview.map((d) => ({ id: d.id, doc_type: d.doc_type })));
     }).catch(() => {});

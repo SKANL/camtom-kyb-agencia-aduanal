@@ -56,7 +56,7 @@ export default function ExpedienteDetailPage({
 }) {
   const { id } = use(params);
 
-  const { expediente, mutate: mutateExpediente } = useExpediente(id);
+  const { expediente, isLoading, mutate: mutateExpediente } = useExpediente(id);
   const { documentos, mutate: mutateDocumentos } = useDocumentos(id);
   const { data: consultasSat = [] } = useSWR<ConsultaSat[]>(
     `consultas-sat-${id}`,
@@ -111,12 +111,27 @@ export default function ExpedienteDetailPage({
     }
   }
 
+  if (isLoading) {
+    return (
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="space-y-4">
+          <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
+          <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-24 rounded-xl bg-card border border-border animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
   if (!expediente) {
     return (
       <main className="max-w-5xl mx-auto px-6 py-8">
         <p className="text-muted-foreground">Expediente no encontrado.</p>
-        <Link href="/" className="text-primary hover:underline">
-          ← Volver
+        <Link href="/" className="text-primary hover:underline mt-2 block">
+          ← Volver al inicio
         </Link>
       </main>
     );
