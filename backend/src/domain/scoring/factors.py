@@ -46,6 +46,20 @@ DOCUMENTOS_ESPERADOS = {
 }
 VIGENCIA_DIAS = {"comprobante_domicilio": 90}
 
+# Only genuinely required fields per doc type — optional fields (regimen_fiscal, alcance,
+# fecha_vencimiento, domicilio_fiscal, etc.) are excluded to avoid false positives when
+# AI cannot extract non-mandatory data from ambiguous document layouts.
+REQUIRED_FIELDS: dict[str, set[str]] = {
+    "csf": {"rfc", "razon_social"},
+    "acta_constitutiva": {"rfc", "razon_social"},
+    "comprobante_domicilio": {"fecha_emision"},
+    "identificacion_rep_legal": {"nombre_completo"},
+    "poder_notarial": {"nombre_representante"},
+    "encargo_conferido": {"rfc_agente_aduanal"},
+    "manifestacion_protesta": set(),  # declara_no_69b_49bis handled by manifestacion_incompleta
+    "rfc": {"rfc", "razon_social"},
+}
+
 def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> list[Factor]:
     factores = []
     presentes = {d["doc_type"] for d in documentos}
@@ -56,7 +70,8 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         if doc["extraction_status"] != "human_reviewed":
             continue
         fields = doc.get("fields") or {}
-        if any(v in (None, "") for v in fields.values()):
+        required = REQUIRED_FIELDS.get(doc["doc_type"], set())
+        if required and any(fields.get(f) in (None, "") for f in required):
             factores.append(Factor("doc_data_incomplete", 15, False, f"El documento {doc['doc_type']} no aportó todos los campos obligatorios.", evidence={"documento_id": doc["id"]}))
 
         fecha_str = fields.get("fecha_emision")
@@ -75,7 +90,7 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         if doc["doc_type"] == "csf" and fecha:
             if (fecha.year, fecha.month) != (hoy.year, hoy.month):
                 factores.append(Factor("csf_stale", 25, False, f"La CSF es del {fecha.strftime('%B %Y')} — se requiere del mes en curso ({hoy.strftime('%B %Y')}).", evidence={"documento_id": doc["id"], "fecha_csf": str(fecha)}))
-        if doc["doc_type"] == "manifestacion_protesta" and not fields.get("declara_no_69b_49bis"):
+        if doc["doc_type"] == "manifestacion_protesta" and fields.get("declara_no_69b_49bis") is False:
             factores.append(Factor("manifestacion_incompleta", 20, False, "La Manifestación bajo Protesta no confirma la cláusula de los Art. 69-B / 49 Bis CFF."))
 
     acta = next((d for d in documentos if d["doc_type"] == "acta_constitutiva"), None)

@@ -21,6 +21,17 @@ DOC_TYPE_HINTS: dict[str, str] = {
         "Devuelve FALSE si el documento afirma que SI esta en esas listas. "
         "Devuelve null si el documento no menciona el Art. 69-B ni el Art. 49 Bis CFF."
     ),
+    "acta_constitutiva": (
+        "\n\nINSTRUCCION ESPECIAL para el campo 'socios': "
+        "Extrae la lista de socios/accionistas como objetos con tres campos: "
+        "'nombre' (nombre completo de la persona), "
+        "'rfc' (RFC de 12 o 13 caracteres — devuelve null si no aparece en el documento), "
+        "'porcentaje' (numero de participacion, ej: 60 para 60%). "
+        "Ejemplo de salida: "
+        "[{\"nombre\": \"Juan Perez Garcia\", \"rfc\": \"PEGJ850101HDFRZN09\", \"porcentaje\": 60}]. "
+        "Si el porcentaje aparece como texto '60%', extrae solo el numero 60. "
+        "Si hay multiples socios, incluye todos en la lista."
+    ),
 }
 
 
