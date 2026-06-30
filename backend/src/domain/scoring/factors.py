@@ -28,14 +28,23 @@ def factores_listas_sat(sat_hits: list[dict]) -> list[Factor]:
 
 def factores_discrepancias(resultado) -> list[Factor]:
     factores = []
+    cv = getattr(resultado, "compared_values", {})
     if resultado.rfc_discrepante:
-        factores.append(Factor("disc_rfc", 50, False, "El RFC no coincide entre los documentos del expediente."))
+        ev = cv.get("rfc", {})
+        factores.append(Factor("disc_rfc", 50, False, "El RFC no coincide entre los documentos del expediente.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", "")} if ev else None))
     if resultado.razon_social_discrepante:
-        factores.append(Factor("disc_razon_social", 30, False, "La razón social no coincide de forma material entre los documentos."))
+        ev = cv.get("razon_social", {})
+        factores.append(Factor("disc_razon_social", 30, False, "La razón social no coincide de forma material entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.domicilio_discrepante:
-        factores.append(Factor("disc_domicilio", 20, False, "El domicilio no coincide de forma material entre los documentos."))
+        ev = cv.get("domicilio", {})
+        factores.append(Factor("disc_domicilio", 20, False, "El domicilio no coincide de forma material entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.representante_discrepante:
-        factores.append(Factor("disc_representante", 25, False, "El nombre del representante legal no coincide entre los documentos."))
+        ev = cv.get("representante", {})
+        factores.append(Factor("disc_representante", 25, False, "El nombre del representante legal no coincide entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.fechas_inconsistentes:
         factores.append(Factor("disc_fechas", 15, False, "Inconsistencia entre fechas de emisión/vigencia/vencimiento."))
     return factores

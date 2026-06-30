@@ -50,4 +50,31 @@ def reconciliar_expediente(supabase_client, expediente_id: str):
         else {"similarity": 1.0, "same_entity": True, "reasoning": "Sin datos de representante para comparar"}
     )
 
-    return reconciliar(rfcs, sim_razon_social, sim_domicilio, sim_representante, fechas_validas=True)
+    compared_values: dict = {}
+    if razon_social_csf != expediente["razon_social"]:
+        compared_values["razon_social"] = {
+            "expediente": expediente["razon_social"],
+            "documento": razon_social_csf,
+            "documento_id": documentos.get("csf", {}).get("id"),
+        }
+    if domicilio_b and domicilio_a != domicilio_b:
+        compared_values["domicilio"] = {
+            "expediente": domicilio_a,
+            "documento": domicilio_b,
+            "documento_id": documentos.get("comprobante_domicilio", {}).get("id"),
+        }
+    if rep_b and rep_a != rep_b:
+        compared_values["representante"] = {
+            "expediente": rep_a,
+            "documento": rep_b,
+            "documento_id": documentos.get("poder_notarial", {}).get("id"),
+        }
+    rfcs_norm = {r.strip().upper() for r in rfcs if r}
+    if len(rfcs_norm) > 1:
+        compared_values["rfc"] = {
+            "expediente": rfcs[0] if rfcs else "",
+            "documento": ", ".join(sorted(rfcs_norm - {rfcs[0].strip().upper() if rfcs else ""})),
+            "documento_id": None,
+        }
+
+    return reconciliar(rfcs, sim_razon_social, sim_domicilio, sim_representante, fechas_validas=True, compared_values=compared_values)
