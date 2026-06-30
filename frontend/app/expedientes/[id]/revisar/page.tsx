@@ -2,6 +2,7 @@
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { mutate as globalMutate } from "swr";
 import { api, type Documento } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -243,6 +244,7 @@ export default function RevisarPage({
       }
       await api.reviewDocumento(documento_id, parsed);
       setSaved(true);
+      await globalMutate(`documentos-${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {

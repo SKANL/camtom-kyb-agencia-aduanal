@@ -254,6 +254,7 @@ export default function ExpedienteDetailPage({
         <SmartDropZone
           expedienteId={id}
           existingDocTypes={existingDocTypes}
+          onAllDone={mutateDocumentos}
         />
       </section>
 

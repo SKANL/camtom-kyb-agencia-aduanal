@@ -178,7 +178,6 @@ export function SmartDropZone({ expedienteId, existingDocTypes, onAllDone = () =
     );
 
     setProcessing(false);
-    router.refresh();
   }
 
   async function handleEvaluate() {
