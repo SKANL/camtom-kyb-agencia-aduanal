@@ -1,5 +1,5 @@
 "use client";
-import { use, useState } from "react";
+import { use, useState, useRef } from "react";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import useSWR from "swr";
@@ -73,6 +73,10 @@ export default function ExpedienteDetailPage({
   });
   const [saving, setSaving] = useState(false);
 
+  const replaceTargetRef = useRef<{ id: string; docType: string } | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+
   function openEdit() {
     if (!expediente) return;
     setEditData({
@@ -108,6 +112,28 @@ export default function ExpedienteDetailPage({
       toast.error("Error al eliminar documento");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleReplaceDocumento(file: File) {
+    if (!replaceTargetRef.current) return;
+    const { id: docId, docType } = replaceTargetRef.current;
+    setReplacingId(docId);
+    try {
+      await api.deleteDocumento(docId);
+      const result = await api.uploadDocumento(id, docType, file);
+      toast.success("Documento reemplazado");
+      if (result.needs_review) {
+        window.location.href = `/expedientes/${id}/revisar?documento_id=${result.documento_id}`;
+        return;
+      }
+      await mutateDocumentos();
+    } catch {
+      toast.error("Error al reemplazar el documento");
+    } finally {
+      setReplacingId(null);
+      replaceTargetRef.current = null;
+      if (replaceInputRef.current) replaceInputRef.current.value = "";
     }
   }
 
@@ -258,6 +284,17 @@ export default function ExpedienteDetailPage({
         />
       </section>
 
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleReplaceDocumento(file);
+        }}
+      />
+
       {/* Document status grid */}
       {documentos.length > 0 && (
         <section className="mb-8">
@@ -300,17 +337,29 @@ export default function ExpedienteDetailPage({
                     <p className="text-xs text-success">Revisión completada ✓</p>
                   ) : null}
                   {doc && (
-                    <button
-                      onClick={() => {
-                        if (confirm("¿Eliminar este documento? Esta acción no se puede deshacer.")) {
-                          handleDeleteDocumento(doc.id);
-                        }
-                      }}
-                      disabled={deletingId === doc.id}
-                      className="text-xs text-destructive hover:underline disabled:opacity-50"
-                    >
-                      {deletingId === doc.id ? "Eliminando…" : "Eliminar"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          replaceTargetRef.current = { id: doc.id, docType: doc.doc_type };
+                          replaceInputRef.current?.click();
+                        }}
+                        disabled={replacingId === doc.id || deletingId === doc.id}
+                        className="text-xs text-primary hover:underline disabled:opacity-50"
+                      >
+                        {replacingId === doc.id ? "Reemplazando…" : "Reemplazar"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm("¿Eliminar este documento? Esta acción no se puede deshacer.")) {
+                            handleDeleteDocumento(doc.id);
+                          }
+                        }}
+                        disabled={deletingId === doc.id || replacingId === doc.id}
+                        className="text-xs text-destructive hover:underline disabled:opacity-50"
+                      >
+                        {deletingId === doc.id ? "Eliminando…" : "Eliminar"}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -360,11 +409,21 @@ export default function ExpedienteDetailPage({
                           )}
                           <button
                             onClick={() => {
+                              replaceTargetRef.current = { id: doc.id, docType: doc.doc_type };
+                              replaceInputRef.current?.click();
+                            }}
+                            disabled={replacingId === doc.id || deletingId === doc.id}
+                            className="text-xs text-primary hover:underline disabled:opacity-50"
+                          >
+                            {replacingId === doc.id ? "Reemplazando…" : "Reemplazar"}
+                          </button>
+                          <button
+                            onClick={() => {
                               if (confirm("¿Eliminar este documento? Esta acción no se puede deshacer.")) {
                                 handleDeleteDocumento(doc.id);
                               }
                             }}
-                            disabled={deletingId === doc.id}
+                            disabled={deletingId === doc.id || replacingId === doc.id}
                             className="text-xs text-destructive hover:underline disabled:opacity-50"
                           >
                             {deletingId === doc.id ? "Eliminando…" : "Eliminar"}
