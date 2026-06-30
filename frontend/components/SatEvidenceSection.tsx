@@ -1,23 +1,20 @@
 import { type ConsultaSat } from "@/lib/api-client";
 
-const LIST_META: Record<string, { label: string; description: string; url: string }> = {
+const LIST_META: Record<string, { label: string; description: string }> = {
   art_69: {
     label: "Art. 69 CFF — Contribuyentes con créditos exigibles",
     description:
       "Lista de personas morales con créditos fiscales exigibles no garantizados publicada mensualmente por el SAT.",
-    url: "https://www.sat.gob.mx/consultas/76254/consulta-la-lista-del-articulo-69-del-cff",
   },
   art_69b: {
     label: "Art. 69-B CFF — EFOS (Empresas Facturadoras de Operaciones Simuladas)",
     description:
       "Registro de contribuyentes presuntos o definitivos de emitir comprobantes de operaciones inexistentes (EFOS).",
-    url: "https://www.sat.gob.mx/consultas/76289/consulta-a-la-lista-del-articulo-69-b-del-cff",
   },
   art_69b_bis: {
     label: "Art. 69-B Bis CFF — Transmisión indebida de pérdidas",
     description:
       "Contribuyentes que han transmitido indebidamente pérdidas fiscales a terceros. Lista de acceso restringido.",
-    url: "https://www.sat.gob.mx/consultas/22738/conoce-las-resoluciones-del-articulo-69-b-bis-del-cff",
   },
 };
 
@@ -114,16 +111,9 @@ export function SatEvidenceSection({ consultas }: Props) {
                 <span>RFC consultado: <span className="font-mono">{c.rfc_consultado}</span></span>
                 <span>{new Date(c.consulted_at).toLocaleString("es-MX")}</span>
               </div>
-              {meta?.url && (
-                <a
-                  href={meta.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline mt-1.5 block"
-                >
-                  Verificar en portal SAT ↗
-                </a>
-              )}
+              <p className="text-xs text-muted-foreground mt-1.5 italic">
+                Verificado contra listados SAT importados localmente — fuente: Datos Abiertos SAT
+              </p>
             </div>
           );
         })}
