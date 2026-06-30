@@ -10,7 +10,10 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
     hoy = hoy or date.today()
     expediente = supabase_client.table("expedientes").select("*").eq("id", expediente_id).execute().data[0]
     documentos = supabase_client.table("documentos").select("*").eq("expediente_id", expediente_id).execute().data
-    socios = supabase_client.table("socios").select("*").eq("expediente_id", expediente_id).execute().data
+
+    # Derive socios from acta constitutiva fields — the socios DB table is not populated by the review flow
+    acta_doc = next((d for d in documentos if d["doc_type"] == "acta_constitutiva"), None)
+    socios = (acta_doc.get("fields") or {}).get("socios", []) if acta_doc else []
 
     sat_hits = consultar_rfc_en_listas(supabase_client, expediente_id, expediente["rfc"])
     factores = factores_listas_sat(sat_hits) + factores_discrepancias(resultado_reconciliacion) + factores_completitud(documentos, socios, hoy)
