@@ -28,14 +28,23 @@ def factores_listas_sat(sat_hits: list[dict]) -> list[Factor]:
 
 def factores_discrepancias(resultado) -> list[Factor]:
     factores = []
+    cv = getattr(resultado, "compared_values", {})
     if resultado.rfc_discrepante:
-        factores.append(Factor("disc_rfc", 50, False, "El RFC no coincide entre los documentos del expediente."))
+        ev = cv.get("rfc", {})
+        factores.append(Factor("disc_rfc", 50, False, "El RFC no coincide entre los documentos del expediente.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", "")} if ev else None))
     if resultado.razon_social_discrepante:
-        factores.append(Factor("disc_razon_social", 30, False, "La razón social no coincide de forma material entre los documentos."))
+        ev = cv.get("razon_social", {})
+        factores.append(Factor("disc_razon_social", 30, False, "La razón social no coincide de forma material entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.domicilio_discrepante:
-        factores.append(Factor("disc_domicilio", 20, False, "El domicilio no coincide de forma material entre los documentos."))
+        ev = cv.get("domicilio", {})
+        factores.append(Factor("disc_domicilio", 20, False, "El domicilio no coincide de forma material entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.representante_discrepante:
-        factores.append(Factor("disc_representante", 25, False, "El nombre del representante legal no coincide entre los documentos."))
+        ev = cv.get("representante", {})
+        factores.append(Factor("disc_representante", 25, False, "El nombre del representante legal no coincide entre los documentos.",
+            evidence={"expediente": ev.get("expediente", ""), "documento": ev.get("documento", ""), "documento_id": ev.get("documento_id")} if ev else None))
     if resultado.fechas_inconsistentes:
         factores.append(Factor("disc_fechas", 15, False, "Inconsistencia entre fechas de emisión/vigencia/vencimiento."))
     return factores
@@ -45,6 +54,20 @@ DOCUMENTOS_ESPERADOS = {
     "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
 }
 VIGENCIA_DIAS = {"comprobante_domicilio": 90}
+
+# Only genuinely required fields per doc type — optional fields (regimen_fiscal, alcance,
+# fecha_vencimiento, domicilio_fiscal, etc.) are excluded to avoid false positives when
+# AI cannot extract non-mandatory data from ambiguous document layouts.
+REQUIRED_FIELDS: dict[str, set[str]] = {
+    "csf": {"rfc", "razon_social"},
+    "acta_constitutiva": {"rfc", "razon_social"},
+    "comprobante_domicilio": {"fecha_emision"},
+    "identificacion_rep_legal": {"nombre_completo"},
+    "poder_notarial": {"nombre_representante"},
+    "encargo_conferido": {"rfc_agente_aduanal"},
+    "manifestacion_protesta": set(),  # declara_no_69b_49bis handled by manifestacion_incompleta
+    "rfc": {"rfc", "razon_social"},
+}
 
 def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> list[Factor]:
     factores = []
@@ -56,7 +79,8 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         if doc["extraction_status"] != "human_reviewed":
             continue
         fields = doc.get("fields") or {}
-        if any(v in (None, "") for v in fields.values()):
+        required = REQUIRED_FIELDS.get(doc["doc_type"], set())
+        if required and any(fields.get(f) in (None, "") for f in required):
             factores.append(Factor("doc_data_incomplete", 15, False, f"El documento {doc['doc_type']} no aportó todos los campos obligatorios.", evidence={"documento_id": doc["id"]}))
 
         fecha_str = fields.get("fecha_emision")
@@ -75,7 +99,7 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
         if doc["doc_type"] == "csf" and fecha:
             if (fecha.year, fecha.month) != (hoy.year, hoy.month):
                 factores.append(Factor("csf_stale", 25, False, f"La CSF es del {fecha.strftime('%B %Y')} — se requiere del mes en curso ({hoy.strftime('%B %Y')}).", evidence={"documento_id": doc["id"], "fecha_csf": str(fecha)}))
-        if doc["doc_type"] == "manifestacion_protesta" and not fields.get("declara_no_69b_49bis"):
+        if doc["doc_type"] == "manifestacion_protesta" and fields.get("declara_no_69b_49bis") is False:
             factores.append(Factor("manifestacion_incompleta", 20, False, "La Manifestación bajo Protesta no confirma la cláusula de los Art. 69-B / 49 Bis CFF."))
 
     acta = next((d for d in documentos if d["doc_type"] == "acta_constitutiva"), None)

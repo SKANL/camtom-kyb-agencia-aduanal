@@ -194,6 +194,33 @@ def test_evaluar_expediente_caso_demo_1_limpio(fake_supabase):
     assert salida["decision"] in ("review_required", "high_risk")  # 0 docs → 8 doc_missing (120pts) → high_risk; SAT clean
 
 
+def test_factores_informativos_separated_from_scored(fake_supabase):
+    """art_49bis_no_verificable must be in factores_informativos, not factores_detail."""
+    from datetime import date
+    from domain.reconciliation.reconcile import ResultadoConciliacion
+    eid = fake_supabase.make_expediente_id()
+    fake_supabase.store["expedientes"] = [
+        {"id": eid, "rfc": "EKU9003173C9", "razon_social": "Escuela Kemper Urgate SA de CV"}
+    ]
+    fake_supabase.store["documentos"] = []
+    fake_supabase.store["sat_lista_registros"] = []
+    fake_supabase.store["consultas_sat"] = []
+    fake_supabase.store["evaluations"] = []
+    resultado = ResultadoConciliacion(False, False, False, False, False)
+    salida = evaluar_expediente(fake_supabase, eid, resultado, hoy=date(2026, 6, 30))
+
+    scored_codes = [f["factor_code"] for f in salida["factores_detail"]]
+    info_codes = [f["factor_code"] for f in salida.get("factores_informativos", [])]
+
+    assert "art_49bis_no_verificable" not in scored_codes, (
+        f"art_49bis_no_verificable must not appear in factores_detail; got: {scored_codes}"
+    )
+    assert "art_49bis_no_verificable" in info_codes, (
+        f"art_49bis_no_verificable must appear in factores_informativos; got: {info_codes}"
+    )
+    assert "factores_informativos" in salida
+
+
 def test_evaluar_usa_socios_del_acta_no_de_tabla(fake_supabase):
     """Socios must come from acta.fields.socios, not the unused socios DB table."""
     eid = fake_supabase.make_expediente_id()

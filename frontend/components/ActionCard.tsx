@@ -1,4 +1,4 @@
-import { ShieldAlert, AlertTriangle, FolderSearch, FileCheck2, Scale, Clock, ArrowRight, Database } from "lucide-react";
+import { ShieldAlert, AlertTriangle, FolderSearch, FileCheck2, Scale, Clock, ArrowRight, Database, User, Timer } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import type { FactorDetail } from "@/lib/api-client";
@@ -21,6 +21,8 @@ type DetailedAction = {
   summary: string;
   steps: string[];
   urgency?: string;
+  responsible?: "cliente" | "agente" | "SAT";
+  time_estimate?: string;
 };
 
 const FACTOR_ACTIONS: Record<string, DetailedAction> = {
@@ -34,6 +36,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Si el cliente impugna, solicitar la resolución de desvirtuación emitida por el SAT antes de reabrir el expediente.",
     ],
     urgency: "Inmediato — no postergar",
+    responsible: "SAT",
+    time_estimate: "Sin plazo fijo — depende de resolución SAT",
   },
   sat_69b_presunto: {
     summary: "RFC en proceso de revisión SAT por presunta emisión de CFDI sin respaldo.",
@@ -44,6 +48,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Documentar cada paso del proceso en el expediente físico.",
     ],
     urgency: "Antes de continuar el onboarding",
+    responsible: "cliente",
+    time_estimate: "4–8 semanas (proceso ante SAT)",
   },
   sat_69b_bis: {
     summary: "RFC en el listado de transmisión indebida de pérdidas fiscales.",
@@ -53,6 +59,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Obtener resolución del SAT que aclare la situación antes de inscribir al padrón.",
     ],
     urgency: "Antes de inscripción al padrón",
+    responsible: "cliente",
+    time_estimate: "4–12 semanas (proceso ante SAT)",
   },
   sat_69_incumplido: {
     summary: "Contribuyente con obligaciones fiscales incumplidas según el SAT.",
@@ -62,6 +70,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "No inscribir al padrón hasta obtener constancia de situación fiscal limpia.",
     ],
     urgency: "Antes de inscripción al padrón",
+    responsible: "cliente",
+    time_estimate: "1–4 semanas (regularización)",
   },
   disc_rfc: {
     summary: "El RFC no coincide entre los documentos del expediente.",
@@ -71,6 +81,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Reemplazar el documento corregido en el expediente y volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "1–3 días hábiles",
   },
   disc_razon_social: {
     summary: "La razón social no coincide entre los documentos del expediente.",
@@ -81,6 +93,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Recargar el documento corregido y volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "1–5 días hábiles",
   },
   disc_domicilio: {
     summary: "El domicilio fiscal no coincide entre los documentos.",
@@ -90,6 +104,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Actualizar los campos del expediente con el domicilio vigente y volver a evaluar.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "3–10 días hábiles",
   },
   disc_representante: {
     summary: "El nombre del representante legal no coincide entre poder, identificación y formulario.",
@@ -99,6 +115,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Si hay error en algún documento, solicitar la versión corregida.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "1–5 días hábiles",
   },
   disc_fechas: {
     summary: "Inconsistencias de fechas entre documentos del expediente.",
@@ -109,6 +127,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Solicitar documentos actualizados para los que estén vencidos.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "1–10 días hábiles",
   },
   doc_missing: {
     summary: "Hay uno o más documentos requeridos que no han sido cargados.",
@@ -119,6 +139,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Volver a ejecutar la evaluación una vez cargado.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "cliente",
+    time_estimate: "1–3 días hábiles",
   },
   doc_expired: {
     summary: "El comprobante de domicilio tiene más de 90 días de antigüedad.",
@@ -128,6 +150,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de la inscripción al padrón",
+    responsible: "cliente",
+    time_estimate: "1–3 días hábiles",
   },
   csf_stale: {
     summary: "La CSF no corresponde al mes calendario vigente.",
@@ -137,6 +161,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de la inscripción al padrón",
+    responsible: "cliente",
+    time_estimate: "Inmediato (en línea via SAT)",
   },
   manifestacion_incompleta: {
     summary: "La Manifestación bajo Protesta no incluye la cláusula de los Art. 69-B y 49 Bis CFF.",
@@ -147,6 +173,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Reemplazar el documento en el expediente y volver a revisar los campos extraídos.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "agente",
+    time_estimate: "1–2 días hábiles",
   },
   socios_incompletos: {
     summary: "No se registraron socios, accionistas ni beneficiario controlador del acta constitutiva.",
@@ -157,6 +185,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Volver a ejecutar la evaluación.",
     ],
     urgency: "Requerido por LFPIORPI y Regla 1.4.14 RGCE",
+    responsible: "agente",
+    time_estimate: "Inmediato (revisar acta)",
   },
   rep_legal_incompleto: {
     summary: "No se capturó el nombre completo del representante legal.",
@@ -166,6 +196,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Guardar la revisión y volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de la evaluación final",
+    responsible: "agente",
+    time_estimate: "Inmediato (revisar identificación)",
   },
   rfc_formato_invalido: {
     summary: "El RFC no cumple con el formato oficial mexicano.",
@@ -175,6 +207,8 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Volver a ejecutar la evaluación.",
     ],
     urgency: "Antes de cualquier consulta SAT",
+    responsible: "cliente",
+    time_estimate: "1–3 días hábiles",
   },
 };
 
@@ -186,10 +220,23 @@ function getNavLink(
   if (factorCode === "doc_missing" && evidence?.doc_type) {
     return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente → cargar documento" };
   }
+  // disc_* with a documento_id → deep link to revisar page
+  if (factorCode.startsWith("disc_") && evidence?.documento_id) {
+    return {
+      href: `/expedientes/${expedienteId}/revisar?documento_id=${evidence.documento_id}`,
+      label: "Ir a revisar documento",
+    };
+  }
   if (factorCode.startsWith("disc_") || factorCode.startsWith("doc_")) {
     return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente" };
   }
   if (factorCode === "csf_stale" || factorCode === "doc_expired") {
+    if (evidence?.documento_id) {
+      return {
+        href: `/expedientes/${expedienteId}/revisar?documento_id=${evidence.documento_id}`,
+        label: "Ir al expediente → reemplazar documento",
+      };
+    }
     return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente → reemplazar documento" };
   }
   return null;
@@ -225,6 +272,20 @@ export function ActionCard({ accion, relatedFactor, index, expedienteId }: Props
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="size-3" />
                 {detail.urgency}
+              </span>
+            )}
+            {detail?.responsible && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <User className="size-3" />
+                {detail.responsible === "cliente" ? "Acción del cliente" :
+                 detail.responsible === "agente" ? "Acción del agente aduanal" :
+                 "Resolución SAT"}
+              </span>
+            )}
+            {detail?.time_estimate && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Timer className="size-3" />
+                {detail.time_estimate}
               </span>
             )}
           </div>

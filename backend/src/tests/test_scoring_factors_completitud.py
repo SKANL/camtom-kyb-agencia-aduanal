@@ -6,12 +6,10 @@ def test_doc_missing_por_cada_tipo_ausente():
     assert [f.factor_code for f in factores].count("doc_missing") == 8
 
 def test_comprobante_domicilio_vencido():
-    # fecha_emision must be inside fields (ISO string)
     documentos = [{"id": "1", "doc_type": "comprobante_domicilio", "extraction_status": "human_reviewed", "fields": {"domicilio": "x", "fecha_emision": "2026-01-01"}}]
     assert any(f.factor_code == "doc_expired" for f in factores_completitud(documentos, [], date(2026, 6, 28)))
 
 def test_csf_fuera_de_mes_vigente():
-    # fecha_emision must be inside fields (ISO string)
     documentos = [{"id": "1", "doc_type": "csf", "extraction_status": "human_reviewed", "fields": {"rfc": "x", "fecha_emision": "2026-05-01"}}]
     assert any(f.factor_code == "csf_stale" for f in factores_completitud(documentos, [], date(2026, 6, 28)))
 
@@ -35,7 +33,7 @@ def test_doc_expired_fires_when_fecha_in_fields():
         "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
     ]
     docs = [_make_doc(t) for t in all_doc_types if t != "comprobante_domicilio"]
-    old_date = "2025-01-01"  # > 90 days ago from any 2026 test date
+    old_date = "2025-01-01"
     docs.append(_make_doc("comprobante_domicilio", {"fecha_emision": old_date}))
     hoy = date(2026, 6, 29)
     factores = factores_completitud(docs, [], hoy)
@@ -61,7 +59,7 @@ def test_csf_stale_fires_when_fecha_in_fields():
         "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
     ]
     docs = [_make_doc(t) for t in all_doc_types if t != "csf"]
-    docs.append(_make_doc("csf", {"fecha_emision": "2026-05-01"}))  # last month
+    docs.append(_make_doc("csf", {"fecha_emision": "2026-05-01"}))
     hoy = date(2026, 6, 29)
     factores = factores_completitud(docs, [], hoy)
     codes = [f.factor_code for f in factores]
@@ -73,7 +71,7 @@ def test_csf_stale_does_not_fire_for_current_month():
         "encargo_conferido", "comprobante_domicilio", "rfc", "csf", "manifestacion_protesta",
     ]
     docs = [_make_doc(t) for t in all_doc_types if t != "csf"]
-    docs.append(_make_doc("csf", {"fecha_emision": "2026-06-01"}))  # current month
+    docs.append(_make_doc("csf", {"fecha_emision": "2026-06-01"}))
     hoy = date(2026, 6, 29)
     factores = factores_completitud(docs, [], hoy)
     codes = [f.factor_code for f in factores]
@@ -96,9 +94,46 @@ def test_manifestacion_false_fires_penalty():
     assert "manifestacion_incompleta" in codes, f"Should fire with False: {codes}"
 
 
-def test_manifestacion_none_fires_penalty():
-    """declara_no_69b_49bis=None (absent/uncertain) → manifestacion_incompleta must fire."""
+def test_manifestacion_none_no_penalty():
+    """declara_no_69b_49bis=None (AI uncertain) → manifestacion_incompleta must NOT fire.
+    Only explicit False (declared non-compliant) triggers the penalty. Uncertain (None) means
+    the AI couldn't parse the clause — we don't penalize for AI uncertainty."""
     docs = [_make_doc("manifestacion_protesta", {"declara_no_69b_49bis": None})]
     hoy = date(2026, 6, 30)
     codes = [f.factor_code for f in factores_completitud(docs, [{"nombre": "x"}], hoy)]
-    assert "manifestacion_incompleta" in codes, f"Should fire with None: {codes}"
+    assert "manifestacion_incompleta" not in codes, f"Should NOT fire with None: {codes}"
+
+
+def test_doc_data_incomplete_ignores_optional_fields():
+    """Optional fields returning None (e.g. regimen_fiscal) must NOT trigger doc_data_incomplete."""
+    doc = _make_doc("csf", {
+        "rfc": "EKU9003173C9",
+        "razon_social": "Escuela Kemper Urgate SA de CV",
+        "regimen_fiscal": None,    # optional — AI couldn't extract
+        "domicilio_fiscal": None,  # optional
+        "fecha_emision": "2026-06-30",
+    })
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "doc_data_incomplete" not in codes, (
+        f"doc_data_incomplete must not fire when only optional fields are null; got {codes}"
+    )
+
+
+def test_doc_data_incomplete_fires_for_required_missing():
+    """Missing rfc (required for csf) MUST trigger doc_data_incomplete."""
+    doc = _make_doc("csf", {
+        "rfc": None,
+        "razon_social": "Escuela Kemper Urgate SA de CV",
+        "fecha_emision": "2026-06-30",
+    })
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "doc_data_incomplete" in codes, (
+        f"doc_data_incomplete must fire when required field rfc is null; got {codes}"
+    )
+
+
+def test_doc_data_incomplete_unknown_doc_type_no_fire():
+    """Unknown doc types have no required fields — must not fire doc_data_incomplete."""
+    doc = _make_doc("unknown_type", {"campo": None})
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "doc_data_incomplete" not in codes

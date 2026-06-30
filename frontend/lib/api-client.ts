@@ -59,6 +59,7 @@ export type EvaluationResult = {
   score_total: number;
   factores_score: Record<string, number>;
   factores_detail: FactorDetail[];
+  factores_informativos?: FactorDetail[];
   acciones_sugeridas: string[];
   evaluated_at: string;
 };

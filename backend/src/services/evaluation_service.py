@@ -16,14 +16,13 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
     socios = (acta_doc.get("fields") or {}).get("socios", []) if acta_doc else []
 
     sat_hits = consultar_rfc_en_listas(supabase_client, expediente_id, expediente["rfc"])
-    factores = factores_listas_sat(sat_hits) + factores_discrepancias(resultado_reconciliacion) + factores_completitud(documentos, socios, hoy)
-    resultado = evaluar(factores)
+    all_factors = factores_listas_sat(sat_hits) + factores_discrepancias(resultado_reconciliacion) + factores_completitud(documentos, socios, hoy)
+    resultado = evaluar(all_factors)
     acciones = acciones_para([f.factor_code for f in resultado.factores])
     needs_update = necesita_actualizacion(documentos, None, hoy, cliente_reporto_cambio=False)
 
-    factores_score = {f.factor_code: f.points for f in resultado.factores}
-    factores_detail = [
-        {
+    def _factor_to_dict(f):
+        return {
             "factor_code": f.factor_code,
             "points": f.points,
             "is_critical_block": f.is_critical_block,
@@ -32,8 +31,13 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
             "legal_ref": LEGAL_REFS.get(f.factor_code, {}).get("ref", ""),
             "category": LEGAL_REFS.get(f.factor_code, {}).get("category", "otro"),
         }
-        for f in resultado.factores
-    ]
+
+    def _is_informational(f):
+        return bool(f.evidence and f.evidence.get("manual_review_required"))
+
+    factores_informativos = [_factor_to_dict(f) for f in resultado.factores if _is_informational(f)]
+    factores_detail = [_factor_to_dict(f) for f in resultado.factores if not _is_informational(f)]
+    factores_score = {f.factor_code: f.points for f in resultado.factores if not _is_informational(f)}
 
     supabase_client.table("evaluations").insert({
         "expediente_id": expediente_id,
@@ -44,6 +48,7 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
             "acciones_sugeridas": acciones,
             "factores_score": factores_score,
             "factores_detail": factores_detail,
+            "factores_informativos": factores_informativos,
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
@@ -60,6 +65,7 @@ def evaluar_expediente(supabase_client, expediente_id: str, resultado_reconcilia
         "decision": resultado.decision,
         "factores_score": factores_score,
         "factores_detail": factores_detail,
+        "factores_informativos": factores_informativos,
         "acciones_sugeridas": acciones,
         "needs_update": needs_update,
     }

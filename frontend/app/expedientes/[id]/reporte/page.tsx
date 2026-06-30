@@ -139,6 +139,7 @@ export default function ReportePage({
   }
 
   const factoresDetail = evaluation?.factores_detail ?? [];
+  const factoresInformativos = evaluation?.factores_informativos ?? [];
   const factoresConRiesgo = factoresDetail
     .filter((f) => f.points > 0)
     .sort((a, b) => b.points - a.points);
@@ -285,6 +286,35 @@ export default function ReportePage({
               ))}
             </div>
           </details>
+        </section>
+      )}
+
+      {/* Informational notes — factors that don't score but need manual attention */}
+      {factoresInformativos.length > 0 && (
+        <section className="mb-6">
+          <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Notas informativas
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Los siguientes puntos no afectan el score pero requieren atención manual del agente aduanal.
+            </p>
+            <ul className="space-y-2">
+              {factoresInformativos.map((f) => (
+                <li key={f.factor_code} className="flex items-start gap-2.5 text-sm">
+                  <span className="mt-0.5 size-4 rounded-full bg-muted-foreground/20 flex items-center justify-center shrink-0 text-[10px] text-muted-foreground font-bold">
+                    i
+                  </span>
+                  <span className="text-muted-foreground leading-relaxed">{f.detail}</span>
+                  {f.legal_ref && (
+                    <span className="text-xs text-muted-foreground/50 shrink-0 mt-0.5">
+                      ({f.legal_ref})
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
       )}
 
