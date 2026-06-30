@@ -1,5 +1,7 @@
-import { ShieldAlert, BookOpen, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { ShieldAlert, BookOpen, ChevronDown, Pencil } from "lucide-react";
 import type { FactorDetail } from "@/lib/api-client";
+import { DocFieldsEditModal } from "@/components/DocFieldsEditModal";
 
 const FACTOR_LABELS: Record<string, string> = {
   sat_69b_definitivo: "EFOS Definitivo (Art. 69-B CFF)",
@@ -66,15 +68,39 @@ function renderEvidence(evidence: Record<string, unknown> | null): string | null
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
+function EvidenceDisplay({
+  evidence,
+  expedienteId,
+  onFieldsEdited,
+  factorCode,
+}: {
+  evidence: Record<string, unknown>;
+  expedienteId?: string;
+  onFieldsEdited?: () => void;
+  factorCode?: string;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+
+  const missingFields = Array.isArray(evidence?.missing_fields)
+    ? (evidence.missing_fields as string[])
+    : factorCode === "rep_legal_incompleto"
+    ? ["nombre_representante"]
+    : [];
+  const documentoId =
+    typeof evidence?.documento_id === "string" ? evidence.documento_id : null;
+
   const entries = Object.entries(evidence);
   return (
     <div className="space-y-1">
       {entries.map(([k, v]) => {
+        if (k === "missing_fields") return null; // rendered in the section below
         if (k === "doc_type" && typeof v === "string") {
           return (
             <p key={k} className="text-xs text-muted-foreground">
-              Documento afectado: <span className="font-medium text-foreground">{DOC_TYPE_LABELS[v] ?? v}</span>
+              Documento afectado:{" "}
+              <span className="font-medium text-foreground">
+                {DOC_TYPE_LABELS[v] ?? v}
+              </span>
             </p>
           );
         }
@@ -95,7 +121,8 @@ function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
         if (k === "expediente" && typeof v === "string") {
           return (
             <p key={k} className="text-xs text-muted-foreground">
-              En el expediente: <span className="font-medium text-foreground">{v}</span>
+              En el expediente:{" "}
+              <span className="font-medium text-foreground">{v}</span>
             </p>
           );
         }
@@ -109,17 +136,56 @@ function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
         if (k === "rfcs" && Array.isArray(v)) {
           return (
             <p key={k} className="text-xs text-muted-foreground">
-              RFCs encontrados: <span className="font-mono font-medium text-foreground">{(v as string[]).join(", ")}</span>
+              RFCs encontrados:{" "}
+              <span className="font-mono font-medium text-foreground">
+                {(v as string[]).join(", ")}
+              </span>
             </p>
           );
         }
         // Fallback for unknown keys: render as readable text, never raw JSON
         return (
           <p key={k} className="text-xs text-muted-foreground capitalize">
-            {k.replace(/_/g, " ")}: <span className="font-medium text-foreground">{String(v)}</span>
+            {k.replace(/_/g, " ")}:{" "}
+            <span className="font-medium text-foreground">{String(v)}</span>
           </p>
         );
       })}
+
+      {missingFields.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground font-medium">Campos faltantes:</p>
+          <ul className="text-xs list-disc list-inside space-y-0.5">
+            {missingFields.map((f) => (
+              <li key={f} className="text-destructive font-mono">
+                {f}
+              </li>
+            ))}
+          </ul>
+          {expedienteId && documentoId && onFieldsEdited && (
+            <button
+              onClick={() => setEditOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium mt-1"
+            >
+              <Pencil className="size-3" />
+              {factorCode === "rep_legal_incompleto"
+                ? "Completar nombre del representante"
+                : "Editar campos"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {expedienteId && documentoId && onFieldsEdited && editOpen && (
+        <DocFieldsEditModal
+          documentoId={documentoId}
+          expedienteId={expedienteId}
+          missingFields={missingFields}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={onFieldsEdited}
+        />
+      )}
     </div>
   );
 }
@@ -127,9 +193,13 @@ function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
 export function FactorDetailCard({
   factor,
   maxPoints,
+  expedienteId,
+  onFieldsEdited,
 }: {
   factor: FactorDetail;
   maxPoints: number;
+  expedienteId?: string;
+  onFieldsEdited?: () => void;
 }) {
   const chip = CATEGORY_CHIP[factor.category] ?? CATEGORY_CHIP.otro;
   const label = FACTOR_LABELS[factor.factor_code] ?? factor.factor_code;
@@ -157,7 +227,9 @@ export function FactorDetailCard({
                 BLOQUEO CRÍTICO
               </span>
             )}
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${chip.className}`}>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${chip.className}`}
+            >
               {chip.label}
             </span>
           </div>
@@ -166,7 +238,11 @@ export function FactorDetailCard({
         <div className="shrink-0 text-right">
           <p
             className={`text-2xl font-bold leading-none ${
-              isCritical ? "text-destructive" : factor.points > 0 ? "text-warning" : "text-success"
+              isCritical
+                ? "text-destructive"
+                : factor.points > 0
+                ? "text-warning"
+                : "text-success"
             }`}
           >
             {factor.points > 0 ? `+${factor.points}` : "0"}
@@ -191,7 +267,12 @@ export function FactorDetailCard({
       {/* Human-readable evidence */}
       {factor.evidence && Object.keys(factor.evidence).length > 0 && (
         <div className="rounded-lg bg-muted/40 px-3 py-2">
-          <EvidenceDisplay evidence={factor.evidence} />
+          <EvidenceDisplay
+            evidence={factor.evidence}
+            expedienteId={expedienteId}
+            onFieldsEdited={onFieldsEdited}
+            factorCode={factor.factor_code}
+          />
         </div>
       )}
 
@@ -204,7 +285,9 @@ export function FactorDetailCard({
             <ChevronDown className="size-3 transition-transform group-open:rotate-180 ml-auto" />
           </summary>
           <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2">
-            <p className="text-xs text-muted-foreground leading-relaxed">{factor.legal_ref}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {factor.legal_ref}
+            </p>
           </div>
         </details>
       )}
