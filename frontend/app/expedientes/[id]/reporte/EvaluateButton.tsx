@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { api } from "@/lib/api-client";
 import { revalidateExpedientes } from "@/hooks/use-expedientes";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ export function EvaluateButton({
     try {
       await api.evaluate(expedienteId);
       await revalidateExpedientes();
+      await mutate(`consultas-sat-report-${expedienteId}`);
+      await mutate(`evaluations-history-${expedienteId}`);
       toast.success("Evaluación completada");
       if (onEvaluated) {
         onEvaluated();
