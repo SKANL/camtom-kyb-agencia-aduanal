@@ -1,4 +1,30 @@
+import uuid as _uuid
 import pytest
+
+
+class _FakeBucket:
+    def __init__(self, store, bucket_name):
+        self._store = store
+        self._bucket = bucket_name
+
+    def upload(self, path, file, file_options=None):
+        return {"path": path}
+
+    def download(self, path):
+        return self._store.get(f"_storage_{self._bucket}_{path}", b"%PDF-1.4\n%%EOF")
+
+    def remove(self, paths):
+        for p in paths:
+            self._store.pop(f"_storage_{self._bucket}_{p}", None)
+        return {}
+
+
+class _FakeStorage:
+    def __init__(self, store):
+        self._store = store
+
+    def from_(self, bucket_name):
+        return _FakeBucket(self._store, bucket_name)
 
 
 class _FakeQuery:
@@ -75,9 +101,13 @@ class FakeSupabase:
     def __init__(self):
         self.store: dict[str, list[dict]] = {}
         self.fail_on_insert: dict[str, Exception] = {}
+        self.storage = _FakeStorage(self.store)
 
     def table(self, name):
         return _FakeQuery(name, self.store, self.fail_on_insert)
+
+    def make_expediente_id(self) -> str:
+        return str(_uuid.uuid4())
 
 
 @pytest.fixture

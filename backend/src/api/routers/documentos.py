@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from api.deps import get_supabase_client
 from infrastructure.ai.classify import clasificar_documento
 from infrastructure.ai.extract import extraer_campos
-from infrastructure.ai.pdf import extraer_texto, extraer_texto_de_bytes
+from infrastructure.ai.pdf import extraer_texto_de_bytes
 from infrastructure.ai.schemas import SCHEMA_REGISTRY
 from infrastructure.storage.supabase_storage import crear_signed_upload_url
 
@@ -55,12 +55,28 @@ def extract_documento(documento_id: str, supabase=Depends(get_supabase_client)):
     if not result.data:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     doc = result.data[0]
-    texto = extraer_texto(doc["storage_path"])
-    campos = extraer_campos(supabase, doc["doc_type"], texto)
+    storage_path = doc.get("storage_path")
+    if not storage_path:
+        raise HTTPException(status_code=422, detail="El documento no tiene archivo en Storage")
+    try:
+        content = supabase.storage.from_("kyb-docs").download(storage_path)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"No se pudo descargar el archivo de Storage: {e}")
+    texto = extraer_texto_de_bytes(content)
+    needs_review = False
+    campos: dict = {}
+    if texto.strip():
+        try:
+            campos = extraer_campos(supabase, doc["doc_type"], texto)
+        except Exception:
+            needs_review = True
+    if not campos:
+        needs_review = True
+    extraction_status = "extracted" if campos and not needs_review else "pending"
     supabase.table("documentos").update(
-        {"extracted_raw": campos, "fields": campos, "extraction_status": "extracted"}
+        {"extracted_raw": campos, "fields": campos, "extraction_status": extraction_status}
     ).eq("id", documento_id).execute()
-    return {"extraction_status": "extracted", "fields": campos}
+    return {"extraction_status": extraction_status, "fields": campos, "needs_review": needs_review}
 
 
 @router.patch("/{documento_id}")
@@ -72,6 +88,20 @@ def revisar_documento(documento_id: str, fields: dict, supabase=Depends(get_supa
         {"fields": fields, "extraction_status": "human_reviewed"}
     ).eq("id", documento_id).execute()
     return {"extraction_status": "human_reviewed"}
+
+
+@router.delete("/{documento_id}", status_code=204)
+def eliminar_documento(documento_id: str, supabase=Depends(get_supabase_client)):
+    result = supabase.table("documentos").select("id, storage_path").eq("id", documento_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    storage_path = result.data[0].get("storage_path")
+    if storage_path:
+        try:
+            supabase.storage.from_("kyb-docs").remove([storage_path])
+        except Exception:
+            pass  # Storage delete is best-effort; DB delete always happens
+    supabase.table("documentos").delete().eq("id", documento_id).execute()
 
 
 @router.post("/upload")
@@ -113,7 +143,19 @@ async def upload_documento(
     )
 
     texto = extraer_texto_de_bytes(content)
-    campos = extraer_campos(supabase, doc_type, texto) if texto.strip() else {}
+
+    needs_review = False
+    campos: dict = {}
+    if texto.strip():
+        try:
+            campos = extraer_campos(supabase, doc_type, texto)
+        except Exception:
+            needs_review = True
+
+    if not campos:
+        needs_review = True
+
+    extraction_status = "extracted" if campos and not needs_review else "pending"
 
     documento_id = str(uuid.uuid4())
     supabase.table("documentos").insert(
@@ -125,7 +167,7 @@ async def upload_documento(
             "storage_path": storage_path,
             "extracted_raw": campos,
             "fields": campos,
-            "extraction_status": "extracted" if campos else "pending",
+            "extraction_status": extraction_status,
         }
     ).execute()
 
@@ -133,7 +175,8 @@ async def upload_documento(
         "documento_id": documento_id,
         "doc_type": doc_type,
         "fields": campos,
-        "extraction_status": "extracted" if campos else "pending",
+        "extraction_status": extraction_status,
+        "needs_review": needs_review,
     }
 
 
