@@ -17,3 +17,26 @@ def test_encargo_conferido_tiene_su_propio_schema():
         rfc_agente_aduanal="ABC010101XX1", alcance="general", fecha_vigencia="2026-01-01"
     )
     assert schema.rfc_agente_aduanal == "ABC010101XX1"
+
+
+def test_rfc_in_schema_registry():
+    from infrastructure.ai.schemas import SCHEMA_REGISTRY
+    assert "rfc" in SCHEMA_REGISTRY
+
+
+def test_rfc_fields_structure():
+    from infrastructure.ai.schemas import SCHEMA_REGISTRY, RfcFields
+    schema = SCHEMA_REGISTRY["rfc"]
+    assert schema is RfcFields
+    instance = RfcFields(rfc="EKU9003173C9", razon_social="Test SA de CV", domicilio_fiscal="Calle 1")
+    assert instance.rfc == "EKU9003173C9"
+    assert instance.razon_social == "Test SA de CV"
+    assert instance.domicilio_fiscal == "Calle 1"
+
+
+def test_rfc_fields_all_optional():
+    from infrastructure.ai.schemas import RfcFields
+    instance = RfcFields()
+    assert instance.rfc is None
+    assert instance.razon_social is None
+    assert instance.domicilio_fiscal is None

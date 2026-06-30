@@ -40,6 +40,12 @@ class ManifestacionProtestaFields(BaseModel):
     declara_no_69b_49bis: bool = False
 
 
+class RfcFields(BaseModel):
+    rfc: str | None = None
+    razon_social: str | None = None
+    domicilio_fiscal: str | None = None
+
+
 class SimilarityResult(BaseModel):
     similarity: float = Field(ge=0.0, le=1.0)
     same_entity: bool
@@ -54,4 +60,5 @@ SCHEMA_REGISTRY: dict[str, type[BaseModel]] = {
     "poder_notarial": PoderNotarialFields,
     "encargo_conferido": EncargoConferidoFields,
     "manifestacion_protesta": ManifestacionProtestaFields,
+    "rfc": RfcFields,
 }
