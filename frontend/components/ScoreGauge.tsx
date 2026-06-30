@@ -17,7 +17,7 @@ export function ScoreGauge({ score, decision }: { score: number; decision: strin
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Score de riesgo</p>
           <p className={`text-5xl font-bold leading-none ${config.textClass}`}>
             {score}
-            <span className="text-lg font-normal text-muted-foreground ml-1">/ 100</span>
+            <span className="text-sm font-normal text-muted-foreground ml-1">pts de riesgo</span>
           </p>
         </div>
         <div className="text-right">
@@ -41,9 +41,9 @@ export function ScoreGauge({ score, decision }: { score: number; decision: strin
       </div>
 
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>0 — Sin riesgo</span>
-        <span>30 — Revisión</span>
-        <span>70+ — Alto riesgo</span>
+        <span className="text-success">0–29 aprobado</span>
+        <span className="text-warning">30–69 revisión</span>
+        <span className="text-destructive">70+ bloqueado</span>
       </div>
     </div>
   );
