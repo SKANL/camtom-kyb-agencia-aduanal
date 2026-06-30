@@ -137,3 +137,88 @@ def test_doc_data_incomplete_unknown_doc_type_no_fire():
     doc = _make_doc("unknown_type", {"campo": None})
     codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
     assert "doc_data_incomplete" not in codes
+
+
+def test_rep_legal_not_human_reviewed_no_penalty():
+    """identificacion_rep_legal with status != human_reviewed must NOT fire rep_legal_incompleto."""
+    doc = {
+        "id": "rep-id",
+        "doc_type": "identificacion_rep_legal",
+        "extraction_status": "extracted",
+        "fields": {},
+    }
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "rep_legal_incompleto" not in codes, (
+        f"rep_legal_incompleto must NOT fire for non-reviewed doc; got {codes}"
+    )
+
+
+def test_rep_legal_human_reviewed_missing_nombre_fires():
+    """identificacion_rep_legal human_reviewed with null nombre_completo MUST fire rep_legal_incompleto."""
+    doc = {
+        "id": "rep-id",
+        "doc_type": "identificacion_rep_legal",
+        "extraction_status": "human_reviewed",
+        "fields": {"nombre_completo": None},
+    }
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "rep_legal_incompleto" in codes, (
+        f"rep_legal_incompleto must fire for human_reviewed doc with null nombre_completo; got {codes}"
+    )
+
+
+def test_doc_data_incomplete_evidence_includes_missing_fields():
+    """doc_data_incomplete evidence must include 'missing_fields' list."""
+    doc = _make_doc("csf", {"rfc": None, "razon_social": "Empresa SA"})
+    factors = factores_completitud([doc], [], date(2026, 6, 30))
+    incomplete = [f for f in factors if f.factor_code == "doc_data_incomplete"]
+    assert incomplete, "doc_data_incomplete must fire for csf with missing rfc"
+    ev = incomplete[0].evidence
+    assert ev is not None
+    assert "missing_fields" in ev, f"evidence must have 'missing_fields'; got {ev}"
+    assert "rfc" in ev["missing_fields"], f"'rfc' must be in missing_fields; got {ev['missing_fields']}"
+
+
+def test_acta_not_human_reviewed_no_socios_penalty():
+    """acta_constitutiva not human_reviewed must NOT fire socios_incompletos."""
+    doc = {
+        "id": "acta-id",
+        "doc_type": "acta_constitutiva",
+        "extraction_status": "extracted",
+        "fields": {"rfc": "X", "razon_social": "Y"},
+    }
+    codes = [f.factor_code for f in factores_completitud([doc], [], date(2026, 6, 30))]
+    assert "socios_incompletos" not in codes, (
+        f"socios_incompletos must NOT fire for non-reviewed acta; got {codes}"
+    )
+
+
+def test_scenario_1_all_docs_filled_no_completitud_penalties():
+    """Golden path: all 8 docs human_reviewed with all required fields → zero penalty factors from completitud."""
+    hoy = date(2026, 6, 30)
+    docs = [
+        {"id": "1", "doc_type": "csf", "extraction_status": "human_reviewed",
+         "fields": {"rfc": "EKU9003173C9", "razon_social": "Escuela Kemper Urgate SA de CV",
+                    "fecha_emision": "2026-06-01"}},
+        {"id": "2", "doc_type": "acta_constitutiva", "extraction_status": "human_reviewed",
+         "fields": {"rfc": "EKU9003173C9", "razon_social": "Escuela Kemper Urgate SA de CV",
+                    "socios": [{"nombre": "Juan Pérez García", "rfc": "PEGJ850101HDFRZN09", "porcentaje": 60}]}},
+        {"id": "3", "doc_type": "comprobante_domicilio", "extraction_status": "human_reviewed",
+         "fields": {"domicilio": "Av. Insurgentes Sur 123", "fecha_emision": "2026-06-01"}},
+        {"id": "4", "doc_type": "identificacion_rep_legal", "extraction_status": "human_reviewed",
+         "fields": {"nombre_completo": "Juan Pérez García", "fecha_vencimiento": "2029-12-31"}},
+        {"id": "5", "doc_type": "poder_notarial", "extraction_status": "human_reviewed",
+         "fields": {"nombre_representante": "Juan Pérez García", "alcance": "Actos de Administración"}},
+        {"id": "6", "doc_type": "encargo_conferido", "extraction_status": "human_reviewed",
+         "fields": {"rfc_agente_aduanal": "CAMT930401AB9", "alcance": "Import/Export",
+                    "fecha_vigencia": "2027-12-31"}},
+        {"id": "7", "doc_type": "manifestacion_protesta", "extraction_status": "human_reviewed",
+         "fields": {"declara_no_69b_49bis": True}},
+        {"id": "8", "doc_type": "rfc", "extraction_status": "human_reviewed",
+         "fields": {"rfc": "EKU9003173C9", "razon_social": "Escuela Kemper Urgate SA de CV",
+                    "domicilio_fiscal": "Av. Insurgentes Sur 123"}},
+    ]
+    socios = [{"nombre": "Juan Pérez García", "rfc": "PEGJ850101HDFRZN09", "porcentaje": 60}]
+    factors = factores_completitud(docs, socios, hoy)
+    penalty_codes = [f.factor_code for f in factors if f.points > 0]
+    assert not penalty_codes, f"Scenario 1 must produce zero penalty factors; got {penalty_codes}"
