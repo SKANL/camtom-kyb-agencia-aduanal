@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, DuplicateDocumentoError } from "@/lib/api-client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -31,6 +32,16 @@ export function DocumentUploader({ expedienteId, docType, onDone }: Props) {
       const result = await api.uploadDocumento(expedienteId, docType, file);
       setDocId(result.documento_id);
       setPasoActual(3);
+      if (result.needs_review) {
+        toast("La IA no pudo extraer campos — completá los datos manualmente", {
+          description: "Serás redirigido a la pantalla de revisión.",
+        });
+        setTimeout(() => {
+          window.location.href = `/expedientes/${expedienteId}/revisar?documento_id=${result.documento_id}`;
+        }, 1200);
+        setEstado("done");
+        return;
+      }
       setEstado("done");
       onDone?.();
       router.refresh();
