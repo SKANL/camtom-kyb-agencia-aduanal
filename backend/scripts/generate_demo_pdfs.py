@@ -294,7 +294,7 @@ def generate():
     # Expected scoring: disc_razon_social (30) + disc_representante (25) = 55 pts → review_required
     disc_dir = OUTPUT_DIR / "escenario_2_discrepancia"
     disc_dir.mkdir(exist_ok=True)
-    make_csf(disc_dir / "csf.pdf", "COX010101AB1", "Corporativo X SA de CV",
+    make_csf(disc_dir / "csf.pdf", "COX010101AB1", "Corporativo Equis Distribuidora, SA de CV",
              "Avenida Insurgentes Sur Num 123, Colonia Roma", "María López")
     make_acta(disc_dir / "acta_constitutiva.pdf", "COX010101AB1", "Corporativo X, S.A. de C.V.",
               "Maria Lopez Hernandez", ["María López Hernandez (51%)", "Roberto Sánchez Cruz (49%)"])
@@ -303,7 +303,7 @@ def generate():
     make_manifestacion(disc_dir / "manifestacion_protesta.pdf", "Corporativo X SA de CV",
                        "COX010101AB1", "María López", declara=True)
     make_identificacion_rep_legal(disc_dir / "identificacion_rep_legal.pdf", "Maria Lopez Hernandez")
-    make_poder_notarial(disc_dir / "poder_notarial.pdf", "Maria Lopez Hernandez",
+    make_poder_notarial(disc_dir / "poder_notarial.pdf", "Carlos Eduardo Morales Ríos",
                         "Corporativo X SA de CV")
     make_encargo_conferido(disc_dir / "encargo_conferido.pdf", "CAMT930401AB9", "Corporativo X SA de CV")
     make_comprobante_rfc(disc_dir / "rfc.pdf", "COX010101AB1", "Corporativo X SA de CV",

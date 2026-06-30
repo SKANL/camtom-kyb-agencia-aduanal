@@ -105,7 +105,7 @@ def seed(supabase):
 
     docs2 = [
         {"doc_type": "csf", "fields": {
-            "rfc": "COX010101AB1", "razon_social": "Corporativo X SA de CV",
+            "rfc": "COX010101AB1", "razon_social": "Corporativo Equis Distribuidora, SA de CV",
             "domicilio_fiscal": "Avenida Insurgentes Sur Num 123, Colonia Roma",
             "fecha_emision": "2026-06-01", "regimen_fiscal": "601 - General de Ley Personas Morales",
         }},
@@ -124,7 +124,7 @@ def seed(supabase):
             "nombre_completo": "Maria Lopez Hernandez", "fecha_vencimiento": "2028-06-30",
         }},
         {"doc_type": "poder_notarial", "fields": {
-            "nombre_representante": "Maria Lopez Hernandez",
+            "nombre_representante": "Carlos Eduardo Morales Ríos",
             "alcance": "Actos de Administración",
         }},
         {"doc_type": "encargo_conferido", "fields": {
