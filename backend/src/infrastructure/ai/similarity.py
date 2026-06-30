@@ -12,6 +12,14 @@ PROMPT_SIMILARITY = (
 
 def comparar_semanticamente(supabase_client, campo: str, texto_a: str, texto_b: str) -> dict:
     def compute() -> dict:
-        modelo = get_groq_model().with_structured_output(SimilarityResult)
-        return modelo.invoke(PROMPT_SIMILARITY.format(campo=campo, texto_a=texto_a, texto_b=texto_b)).model_dump()
-    return call_with_harness(supabase_client, "similarity", {"campo": campo, "texto_a": texto_a, "texto_b": texto_b}, compute)
+        modelo = get_groq_model("similarity").with_structured_output(SimilarityResult)
+        return modelo.invoke(
+            PROMPT_SIMILARITY.format(campo=campo, texto_a=texto_a, texto_b=texto_b)
+        ).model_dump()
+
+    return call_with_harness(
+        supabase_client,
+        "similarity",
+        {"campo": campo, "texto_a": texto_a, "texto_b": texto_b},
+        compute,
+    )

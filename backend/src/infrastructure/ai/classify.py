@@ -8,9 +8,14 @@ from infrastructure.ai.groq_client import get_groq_model
 logger = logging.getLogger(__name__)
 
 VALID_DOC_TYPES = {
-    "csf", "acta_constitutiva", "comprobante_domicilio",
-    "identificacion_rep_legal", "poder_notarial",
-    "encargo_conferido", "manifestacion_protesta",
+    "csf",
+    "acta_constitutiva",
+    "comprobante_domicilio",
+    "identificacion_rep_legal",
+    "poder_notarial",
+    "encargo_conferido",
+    "manifestacion_protesta",
+    "rfc",
 }
 
 _PROMPT = """You are a document classification assistant for a Mexican customs agency KYB system.
@@ -24,6 +29,7 @@ Document types:
 - poder_notarial: Poder Notarial (notarial power of attorney)
 - encargo_conferido: Encargo Conferido (customs agent authorization letter, patente aduanal)
 - manifestacion_protesta: Manifestación bajo Protesta de Decir Verdad (Regla 1.4.14 declaration)
+- rfc: Cédula de Identificación Fiscal (RFC certificate, cedula fiscal)
 
 Return ONLY valid JSON with no extra text:
 {{"doc_type": "<one of the types above or 'unknown'>", "confidence": "<high or low>"}}
@@ -38,7 +44,7 @@ Document text (first 2000 chars):
 def clasificar_documento(texto: str) -> dict:
     """Classify a document by its text content. Returns {doc_type, confidence}."""
     try:
-        llm = get_groq_model()
+        llm = get_groq_model("classification")
         prompt = _PROMPT.format(text=texto[:2000])
         response = llm.invoke([HumanMessage(content=prompt)])
         raw = response.content.strip()
