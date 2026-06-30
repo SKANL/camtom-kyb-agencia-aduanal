@@ -1,10 +1,27 @@
+"use client";
+import { use, useState } from "react";
 import Link from "next/link";
-import { api, type ConsultaSat } from "@/lib/api-client";
+import { Pencil } from "lucide-react";
+import useSWR from "swr";
+import { api } from "@/lib/api-client";
+import type { ConsultaSat } from "@/lib/api-client";
+import { useExpediente, useDocumentos } from "@/hooks/use-expediente";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SmartDropZone } from "@/components/SmartDropZone";
 import { StepperHeader } from "@/components/StepperHeader";
 import { ExpedienteActions } from "@/components/ExpedienteActions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   csf: "Constancia de Situación Fiscal",
@@ -31,25 +48,66 @@ const LIST_TYPE_LABELS: Record<string, string> = {
   art_69b_bis: "Art. 69-B Bis CFF — Pérdidas",
 };
 
-export default async function ExpedienteDetailPage({
+export default function ExpedienteDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id } = use(params);
 
-  let expediente = null;
-  let documentos: Awaited<ReturnType<typeof api.listDocumentos>> = [];
-  let consultasSat: ConsultaSat[] = [];
+  const { expediente, mutate: mutateExpediente } = useExpediente(id);
+  const { documentos, mutate: mutateDocumentos } = useDocumentos(id);
+  const { data: consultasSat = [] } = useSWR<ConsultaSat[]>(
+    `consultas-sat-${id}`,
+    () => api.listConsultasSat(id)
+  );
 
-  try {
-    [expediente, documentos, consultasSat] = await Promise.all([
-      api.getExpediente(id),
-      api.listDocumentos(id).catch(() => []),
-      api.listConsultasSat(id).catch(() => []),
-    ]);
-  } catch {
-    // Not reachable at build time
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    razon_social: "",
+    rfc: "",
+    domicilio_fiscal: "",
+    representante_legal: "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  function openEdit() {
+    if (!expediente) return;
+    setEditData({
+      razon_social: expediente.razon_social,
+      rfc: expediente.rfc,
+      domicilio_fiscal: expediente.domicilio_fiscal ?? "",
+      representante_legal: expediente.representante_legal ?? "",
+    });
+    setEditOpen(true);
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      await api.updateExpediente(id, editData);
+      toast.success("Expediente actualizado");
+      await mutateExpediente();
+      setEditOpen(false);
+    } catch {
+      toast.error("Error al actualizar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteDocumento(docId: string) {
+    setDeletingId(docId);
+    try {
+      await api.deleteDocumento(docId);
+      toast.success("Documento eliminado");
+      await mutateDocumentos();
+    } catch {
+      toast.error("Error al eliminar documento");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   if (!expediente) {
@@ -71,6 +129,52 @@ export default async function ExpedienteDetailPage({
     <main className="max-w-5xl mx-auto px-6 py-8">
       <StepperHeader currentStep={2} expedienteId={id} />
 
+      {/* Inline edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar expediente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Razón social</label>
+              <Input
+                value={editData.razon_social}
+                onChange={(e) => setEditData((d) => ({ ...d, razon_social: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">RFC</label>
+              <Input
+                value={editData.rfc}
+                onChange={(e) => setEditData((d) => ({ ...d, rfc: e.target.value }))}
+                className="font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Domicilio fiscal</label>
+              <Input
+                value={editData.domicilio_fiscal}
+                onChange={(e) => setEditData((d) => ({ ...d, domicilio_fiscal: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Representante legal</label>
+              <Input
+                value={editData.representante_legal}
+                onChange={(e) => setEditData((d) => ({ ...d, representante_legal: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+            <Button onClick={saveEdit} disabled={saving} className="bg-primary text-primary-foreground">
+              {saving ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="mb-6">
         <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -78,7 +182,16 @@ export default async function ExpedienteDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4 mt-2">
           <div>
-            <h1 className="text-2xl font-bold">{expediente.razon_social}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{expediente.razon_social}</h1>
+              <button
+                onClick={openEdit}
+                className="text-muted-foreground hover:text-foreground"
+                title="Editar datos"
+              >
+                <Pencil className="size-4" />
+              </button>
+            </div>
             <p className="text-muted-foreground font-mono text-sm">{expediente.rfc}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -128,7 +241,7 @@ export default async function ExpedienteDetailPage({
         />
       </section>
 
-      {/* Document status grid — only shown once at least 1 doc is uploaded */}
+      {/* Document status grid */}
       {documentos.length > 0 && (
         <section className="mb-8">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
@@ -169,6 +282,19 @@ export default async function ExpedienteDetailPage({
                   ) : doc?.extraction_status === "human_reviewed" ? (
                     <p className="text-xs text-success">Revisión completada ✓</p>
                   ) : null}
+                  {doc && (
+                    <button
+                      onClick={() => {
+                        if (confirm("¿Eliminar este documento? Esta acción no se puede deshacer.")) {
+                          handleDeleteDocumento(doc.id);
+                        }
+                      }}
+                      disabled={deletingId === doc.id}
+                      className="text-xs text-destructive hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === doc.id ? "Eliminando…" : "Eliminar"}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -209,12 +335,23 @@ export default async function ExpedienteDetailPage({
                         <td className="px-4 py-3">
                           <Badge className={`text-xs ${statusInfo.className}`}>{statusInfo.label}</Badge>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right space-x-3">
                           {(doc.extraction_status === "extracted" || doc.extraction_status === "not_applicable") && (
                             <Link href={`/expedientes/${id}/revisar?documento_id=${doc.id}`} className="text-xs text-primary hover:underline">
                               Revisar →
                             </Link>
                           )}
+                          <button
+                            onClick={() => {
+                              if (confirm("¿Eliminar este documento? Esta acción no se puede deshacer.")) {
+                                handleDeleteDocumento(doc.id);
+                              }
+                            }}
+                            disabled={deletingId === doc.id}
+                            className="text-xs text-destructive hover:underline disabled:opacity-50"
+                          >
+                            {deletingId === doc.id ? "Eliminando…" : "Eliminar"}
+                          </button>
                         </td>
                       </tr>
                     );
