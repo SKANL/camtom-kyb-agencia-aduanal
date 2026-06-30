@@ -248,7 +248,13 @@ export default function ReportePage({
           </h2>
           <div className="space-y-3">
             {factoresConRiesgo.map((f) => (
-              <FactorDetailCard key={f.factor_code} factor={f} maxPoints={maxPoints} />
+              <FactorDetailCard
+                key={f.factor_code}
+                factor={f}
+                maxPoints={maxPoints}
+                expedienteId={id}
+                onFieldsEdited={() => mutateEvaluation()}
+              />
             ))}
           </div>
         </section>
@@ -282,7 +288,13 @@ export default function ReportePage({
             </summary>
             <div className="mt-3 space-y-3">
               {factoresSinRiesgo.map((f) => (
-                <FactorDetailCard key={f.factor_code} factor={f} maxPoints={maxPoints} />
+                <FactorDetailCard
+                  key={f.factor_code}
+                  factor={f}
+                  maxPoints={maxPoints}
+                  expedienteId={id}
+                  onFieldsEdited={() => mutateEvaluation()}
+                />
               ))}
             </div>
           </details>

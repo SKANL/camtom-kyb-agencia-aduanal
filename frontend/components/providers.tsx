@@ -7,8 +7,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <SWRConfig
         value={{
+          dedupingInterval: 5000,
+          focusThrottleInterval: 10000,
           revalidateOnFocus: true,
-          shouldRetryOnError: false,
+          errorRetryCount: 2,
         }}
       >
         {children}
