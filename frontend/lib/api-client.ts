@@ -72,6 +72,8 @@ export type ClassifyResult = {
 export type UploadDocumentoResult = {
   documento_id: string;
   extraction_status: string;
+  needs_review: boolean;
+  fields?: Record<string, unknown>;
 };
 
 export type SatImportRun = {
@@ -234,12 +236,18 @@ export const api = {
   listConsultasSat: (expedienteId: string): Promise<ConsultaSat[]> =>
     request(`/expedientes/${expedienteId}/consultas-sat`),
 
+  deleteDocumento: (id: string): Promise<void> =>
+    request(`/documentos/${id}`, { method: "DELETE" }),
+
   // Admin
   triggerSatImport: (listType: string): Promise<SatImportRun> =>
     request(`/admin/ingest/${listType}`, { method: "POST" }),
 
   listSatImportRuns: (): Promise<SatImportRun[]> =>
     request("/admin/sat-import-runs"),
+
+  seedDemo: (): Promise<{ expediente_ids: string[]; evaluations: unknown[]; message: string }> =>
+    request("/admin/demo/seed", { method: "POST" }),
 };
 
 // Backward compat for existing page.tsx
