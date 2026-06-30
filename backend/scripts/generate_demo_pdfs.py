@@ -241,7 +241,7 @@ def make_encargo_conferido(path: Path, rfc_agente_aduanal: str, razon_social: st
     c.save()
 
 
-def make_comprobante_rfc(path: Path, rfc: str, razon_social: str):
+def make_comprobante_rfc(path: Path, rfc: str, razon_social: str, domicilio: str = ""):
     """Comprobante de RFC (cédula de identificación fiscal)."""
     c = canvas.Canvas(str(path), pagesize=letter)
     w, h = letter
@@ -251,10 +251,11 @@ def make_comprobante_rfc(path: Path, rfc: str, razon_social: str):
     c.drawCentredString(w / 2, h - 2.8 * cm, "Servicio de Administración Tributaria")
     fields = [
         ("RFC:", rfc),
-        ("Nombre / Razón Social:", razon_social),
+        ("Razón Social:", razon_social),
+        ("Domicilio Fiscal:", domicilio),
         ("Tipo de persona:", "Moral"),
         ("Fecha de alta en RFC:", "2015-01-15"),
-        ("Régimen:", "601 - General de Ley Personas Morales"),
+        ("Régimen Fiscal:", "601 - General de Ley Personas Morales"),
     ]
     y = h - 4.5 * cm
     for label, value in fields:
@@ -285,7 +286,8 @@ def generate():
     make_poder_notarial(clean_dir / "poder_notarial.pdf", "Juan Pérez García", "Escuela Kemper Urgate SA de CV")
     make_encargo_conferido(clean_dir / "encargo_conferido.pdf", "CAMT930401AB9",
                            "Escuela Kemper Urgate SA de CV")
-    make_comprobante_rfc(clean_dir / "rfc.pdf", "EKU9003173C9", "Escuela Kemper Urgate SA de CV")
+    make_comprobante_rfc(clean_dir / "rfc.pdf", "EKU9003173C9", "Escuela Kemper Urgate SA de CV",
+                         "Av. Insurgentes Sur 123, Col. Roma Norte, CDMX, CP 06700")
 
     # ── Scenario 2: DISCREPANCY — COX010101AB1 ────────────────────────────────
     # All 8 docs. Intentional mismatches in razon_social + representante.
@@ -304,7 +306,8 @@ def generate():
     make_poder_notarial(disc_dir / "poder_notarial.pdf", "Maria Lopez Hernandez",
                         "Corporativo X SA de CV")
     make_encargo_conferido(disc_dir / "encargo_conferido.pdf", "CAMT930401AB9", "Corporativo X SA de CV")
-    make_comprobante_rfc(disc_dir / "rfc.pdf", "COX010101AB1", "Corporativo X SA de CV")
+    make_comprobante_rfc(disc_dir / "rfc.pdf", "COX010101AB1", "Corporativo X SA de CV",
+                         "Avenida Insurgentes Sur Num 123, Colonia Roma")
 
     # ── Scenario 3: HIGH RISK — AAA120730823 ───────────────────────────────────
     # All 8 docs. RFC in Art. 69-B definitivos list → critical block → high_risk.
@@ -323,7 +326,8 @@ def generate():
     make_poder_notarial(risk_dir / "poder_notarial.pdf", "Carlos Sánchez", "Empresa en Lista Negra SA de CV")
     make_encargo_conferido(risk_dir / "encargo_conferido.pdf", "CAMT930401AB9",
                            "Empresa en Lista Negra SA de CV")
-    make_comprobante_rfc(risk_dir / "rfc.pdf", "AAA120730823", "Empresa en Lista Negra SA de CV")
+    make_comprobante_rfc(risk_dir / "rfc.pdf", "AAA120730823", "Empresa en Lista Negra SA de CV",
+                         "Calle Reforma 456, Col. Centro, CDMX, CP 06000")
 
     print("Demo PDFs generated:")
     for f in sorted(OUTPUT_DIR.rglob("*.pdf")):
