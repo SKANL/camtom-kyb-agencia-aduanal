@@ -277,7 +277,10 @@ def generate():
     make_csf(clean_dir / "csf.pdf", "EKU9003173C9", "Escuela Kemper Urgate SA de CV",
              "Av. Insurgentes Sur 123, Col. Roma Norte, CDMX, CP 06700", "Juan Pérez García")
     make_acta(clean_dir / "acta_constitutiva.pdf", "EKU9003173C9", "Escuela Kemper Urgate SA de CV",
-              "Juan Pérez García", ["Juan Pérez García (60%)", "María López Ramírez (40%)"])
+              "Juan Pérez García", [
+                  "Juan Pérez García — RFC: PEGJ850101HDFRZN09 — 60%",
+                  "María López Ramírez — RFC: LOPM760315MDFPRR08 — 40%",
+              ])
     make_comprobante_domicilio(clean_dir / "comprobante_domicilio.pdf", "Escuela Kemper Urgate SA de CV",
                                "Av. Insurgentes Sur 123, Col. Roma Norte, CDMX, CP 06700", "2026-06-01")
     make_manifestacion(clean_dir / "manifestacion_protesta.pdf", "Escuela Kemper Urgate SA de CV",
@@ -297,7 +300,10 @@ def generate():
     make_csf(disc_dir / "csf.pdf", "COX010101AB1", "Corporativo Equis Distribuidora, SA de CV",
              "Avenida Insurgentes Sur Num 123, Colonia Roma", "María López")
     make_acta(disc_dir / "acta_constitutiva.pdf", "COX010101AB1", "Corporativo X, S.A. de C.V.",
-              "Maria Lopez Hernandez", ["María López Hernandez (51%)", "Roberto Sánchez Cruz (49%)"])
+              "Maria Lopez Hernandez", [
+                  "María López Hernandez — RFC: LOHM780315MDFPRR08 — 51%",
+                  "Roberto Sánchez Cruz — RFC: SACR750520HDFNCR06 — 49%",
+              ])
     make_comprobante_domicilio(disc_dir / "comprobante_domicilio.pdf", "Corporativo X SA de CV",
                                "Insurgentes Sur 123, Roma", "2026-06-01")
     make_manifestacion(disc_dir / "manifestacion_protesta.pdf", "Corporativo X SA de CV",
@@ -317,7 +323,9 @@ def generate():
     make_csf(risk_dir / "csf.pdf", "AAA120730823", "Empresa en Lista Negra SA de CV",
              "Calle Reforma 456, Col. Centro, CDMX, CP 06000", "Carlos Sánchez")
     make_acta(risk_dir / "acta_constitutiva.pdf", "AAA120730823", "Empresa en Lista Negra SA de CV",
-              "Carlos Sánchez", ["Carlos Sánchez (100%)"])
+              "Carlos Sánchez", [
+                  "Carlos Sánchez — RFC: SANC720410HDFNCR06 — 100%",
+              ])
     make_comprobante_domicilio(risk_dir / "comprobante_domicilio.pdf", "Empresa en Lista Negra SA de CV",
                                "Calle Reforma 456, Col. Centro, CDMX, CP 06000", "2026-06-01")
     make_manifestacion(risk_dir / "manifestacion_protesta.pdf", "Empresa en Lista Negra SA de CV",
