@@ -267,7 +267,7 @@ export default function RevisarPage({
   if (saved) {
     const nextDoc = remainingDocs[0];
     return (
-      <main className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-4 max-w-sm">
           <div className="w-12 h-12 rounded-full bg-success/15 flex items-center justify-center mx-auto">
             <CheckCircle2 className="size-6 text-success" />
@@ -325,7 +325,7 @@ export default function RevisarPage({
 
   if (!documento_id) {
     return (
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <Link
           href={`/expedientes/${id}`}
           className="text-sm text-muted-foreground hover:text-foreground"
@@ -340,7 +340,7 @@ export default function RevisarPage({
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <StepperHeader currentStep={3} expedienteId={id} />
       <div className="mb-6">
         <Link
@@ -359,7 +359,7 @@ export default function RevisarPage({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {[0, 1].map((i) => (
             <div key={i} className="h-64 rounded-xl bg-card animate-pulse" />
           ))}

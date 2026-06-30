@@ -54,7 +54,7 @@ export function StepperHeader({
               )}
               <span
                 className={[
-                  "text-xs whitespace-nowrap",
+                  "text-xs whitespace-nowrap hidden sm:inline",
                   active ? "text-primary font-medium" : done ? "text-foreground" : "text-muted-foreground",
                 ].join(" ")}
               >

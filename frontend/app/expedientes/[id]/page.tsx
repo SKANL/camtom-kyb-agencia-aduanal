@@ -113,7 +113,7 @@ export default function ExpedienteDetailPage({
 
   if (isLoading) {
     return (
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="space-y-4">
           <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
           <div className="h-4 w-32 rounded bg-muted animate-pulse" />
@@ -128,7 +128,7 @@ export default function ExpedienteDetailPage({
   }
   if (!expediente) {
     return (
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <p className="text-muted-foreground">Expediente no encontrado.</p>
         <Link href="/" className="text-primary hover:underline mt-2 block">
           ← Volver al inicio
@@ -142,7 +142,7 @@ export default function ExpedienteDetailPage({
   const reviewedCount = documentos.filter((d) => d.extraction_status === "human_reviewed").length;
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <StepperHeader currentStep={2} expedienteId={id} />
 
       {/* Inline edit dialog */}
