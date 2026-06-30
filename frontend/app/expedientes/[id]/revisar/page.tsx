@@ -186,10 +186,20 @@ export default function RevisarPage({
   const [remainingDocs, setRemainingDocs] = useState<{ id: string; doc_type: string }[]>([]);
 
   useEffect(() => {
+    // Reset all state for the new document so the success screen doesn't persist
+    // when the user navigates to a different documento_id on the same route.
+    setSaved(false);
+    setDoc(null);
+    setFields({});
+    setError(null);
+    setRemainingDocs([]);
+
     if (!documento_id) {
       setLoading(false);
       return;
     }
+
+    setLoading(true);
     api
       .getDocumento(id, documento_id)
       .then((d) => {
