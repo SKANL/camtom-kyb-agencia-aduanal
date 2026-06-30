@@ -120,6 +120,40 @@ export function DecisionContext({ decision, scoreTotal, hasCriticalBlock }: Prop
           ))}
         </ol>
       </div>
+
+      {/* What would change the outcome */}
+      {decision === "review_required" && (
+        <div className="rounded-lg bg-warning/5 border border-warning/20 px-3 py-2.5 space-y-1.5">
+          <p className="text-xs font-semibold text-warning uppercase tracking-wide">
+            Para cambiar a Aprobado
+          </p>
+          <p className="text-xs text-foreground/80 leading-relaxed">
+            Resolvé todos los factores de riesgo listados abajo. Una vez que no haya
+            discrepancias, documentos faltantes ni problemas de completitud, el score
+            bajaría a 0 pts y la decisión cambiaría a <strong>Aprobado</strong>.
+          </p>
+        </div>
+      )}
+      {decision === "high_risk" && (
+        <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2.5 space-y-1.5">
+          <p className="text-xs font-semibold text-destructive uppercase tracking-wide">
+            Para cambiar esta decisión
+          </p>
+          <p className="text-xs text-foreground/80 leading-relaxed">
+            Si hay un bloqueo crítico (RFC en EFOS definitivo), la decisión no cambia
+            con solo corregir documentos — el cliente debe obtener una resolución de
+            desvirtuación emitida por el SAT. Contactá al área jurídica.
+          </p>
+        </div>
+      )}
+      {decision === "safe" && (
+        <div className="rounded-lg bg-success/5 border border-success/20 px-3 py-2.5">
+          <p className="text-xs text-success leading-relaxed">
+            El expediente cumple todos los requisitos de la Regla 1.4.14 RGCE 2026.
+            Podés proceder con la inscripción al padrón de importadores/exportadores.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

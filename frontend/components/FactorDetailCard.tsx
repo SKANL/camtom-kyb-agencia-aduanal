@@ -92,6 +92,27 @@ function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
             </p>
           );
         }
+        if (k === "expediente" && typeof v === "string") {
+          return (
+            <p key={k} className="text-xs text-muted-foreground">
+              En el expediente: <span className="font-medium text-foreground">{v}</span>
+            </p>
+          );
+        }
+        if (k === "documento" && typeof v === "string") {
+          return (
+            <p key={k} className="text-xs text-warning font-medium">
+              En el documento: <span className="font-medium">{v}</span>
+            </p>
+          );
+        }
+        if (k === "rfcs" && Array.isArray(v)) {
+          return (
+            <p key={k} className="text-xs text-muted-foreground">
+              RFCs encontrados: <span className="font-mono font-medium text-foreground">{(v as string[]).join(", ")}</span>
+            </p>
+          );
+        }
         // Fallback for unknown keys: render as readable text, never raw JSON
         return (
           <p key={k} className="text-xs text-muted-foreground capitalize">
