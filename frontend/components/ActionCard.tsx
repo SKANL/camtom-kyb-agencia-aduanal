@@ -1,4 +1,5 @@
-import { ShieldAlert, AlertTriangle, FolderSearch, FileCheck2, Scale, ExternalLink, Clock } from "lucide-react";
+import { ShieldAlert, AlertTriangle, FolderSearch, FileCheck2, Scale, Clock, ArrowRight, Database } from "lucide-react";
+import Link from "next/link";
 import type React from "react";
 import type { FactorDetail } from "@/lib/api-client";
 
@@ -19,8 +20,6 @@ const PRIORITY_LABEL: Record<string, { label: string; className: string }> = {
 type DetailedAction = {
   summary: string;
   steps: string[];
-  verifyUrl?: string;
-  verifyLabel?: string;
   urgency?: string;
 };
 
@@ -28,48 +27,40 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
   sat_69b_definitivo: {
     summary: "No operar bajo ninguna circunstancia hasta obtener resolución formal del SAT.",
     steps: [
-      "Verificar la presencia en el listado definitivo en sat.gob.mx (Trámites → Consultas → Listado 69-B).",
+      "Verificar la presencia en el listado definitivo (verificado contra datos SAT importados en este sistema).",
       "Notificar formalmente al cliente por escrito y documentar la comunicación en el expediente.",
       "Consultar al área jurídica de la agencia antes de cualquier acción adicional.",
       "No emitir ni aceptar CFDIs vinculados a este RFC.",
       "Si el cliente impugna, solicitar la resolución de desvirtuación emitida por el SAT antes de reabrir el expediente.",
     ],
-    verifyUrl: "https://www.sat.gob.mx/consultas/listado_69b",
-    verifyLabel: "Verificar en sat.gob.mx → Listado 69-B",
     urgency: "Inmediato — no postergar",
   },
   sat_69b_presunto: {
     summary: "RFC en proceso de revisión SAT por presunta emisión de CFDI sin respaldo.",
     steps: [
-      "Verificar el estado actual en sat.gob.mx (Trámites → Consultas → Listado 69-B Presuntos).",
+      "Verificar el estado actual (verificado contra datos SAT importados en este sistema).",
       "Iniciar diligencia ampliada: solicitar al cliente carta de no vinculación con CFDIs observados.",
       "Esperar la resolución del SAT antes de proceder a la inscripción en el padrón.",
       "Documentar cada paso del proceso en el expediente físico.",
     ],
-    verifyUrl: "https://www.sat.gob.mx/consultas/listado_69b",
-    verifyLabel: "Verificar en sat.gob.mx → Listado 69-B",
     urgency: "Antes de continuar el onboarding",
   },
   sat_69b_bis: {
     summary: "RFC en el listado de transmisión indebida de pérdidas fiscales.",
     steps: [
-      "Verificar la presencia en el listado 69-B Bis en sat.gob.mx.",
+      "Verificar la presencia en el listado 69-B Bis (verificado contra datos SAT importados en este sistema).",
       "Solicitar al cliente aclaración escrita ante el SAT sobre las pérdidas fiscales cuestionadas.",
       "Obtener resolución del SAT que aclare la situación antes de inscribir al padrón.",
     ],
-    verifyUrl: "https://www.sat.gob.mx/consultas/listado_69b_bis",
-    verifyLabel: "Verificar en sat.gob.mx → Listado 69-B Bis",
     urgency: "Antes de inscripción al padrón",
   },
   sat_69_incumplido: {
     summary: "Contribuyente con obligaciones fiscales incumplidas según el SAT.",
     steps: [
-      "Verificar la categoría de incumplimiento (firmes, exigibles, CSD sin efectos, no localizado) en sat.gob.mx.",
+      "Verificar la categoría de incumplimiento (verificado contra datos SAT importados en este sistema).",
       "Requerir al cliente aclaración de situación fiscal y documentación que acredite la resolución del adeudo.",
       "No inscribir al padrón hasta obtener constancia de situación fiscal limpia.",
     ],
-    verifyUrl: "https://www.sat.gob.mx/consultas/listado_69",
-    verifyLabel: "Verificar en sat.gob.mx → Art. 69 CFF",
     urgency: "Antes de inscripción al padrón",
   },
   disc_rfc: {
@@ -145,8 +136,6 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
       "Reemplazar la CSF en el expediente con la versión del mes actual.",
       "Volver a ejecutar la evaluación.",
     ],
-    verifyUrl: "https://www.sat.gob.mx/tramites/45247/genera-tu-constancia-de-situacion-fiscal",
-    verifyLabel: "Generar CSF en mi.sat.gob.mx",
     urgency: "Antes de la inscripción al padrón",
   },
   manifestacion_incompleta: {
@@ -189,13 +178,31 @@ const FACTOR_ACTIONS: Record<string, DetailedAction> = {
   },
 };
 
+function getNavLink(
+  factorCode: string,
+  expedienteId: string,
+  evidence?: Record<string, unknown> | null
+): { href: string; label: string } | null {
+  if (factorCode === "doc_missing" && evidence?.doc_type) {
+    return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente → cargar documento" };
+  }
+  if (factorCode.startsWith("disc_") || factorCode.startsWith("doc_")) {
+    return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente" };
+  }
+  if (factorCode === "csf_stale" || factorCode === "doc_expired") {
+    return { href: `/expedientes/${expedienteId}`, label: "Ir al expediente → reemplazar documento" };
+  }
+  return null;
+}
+
 type Props = {
   accion: string;
   relatedFactor?: FactorDetail;
   index: number;
+  expedienteId: string;
 };
 
-export function ActionCard({ accion, relatedFactor, index }: Props) {
+export function ActionCard({ accion, relatedFactor, index, expedienteId }: Props) {
   const category = relatedFactor?.category ?? "otro";
   const icon = CATEGORY_ICON[category];
   const priority = PRIORITY_LABEL[category];
@@ -247,18 +254,31 @@ export function ActionCard({ accion, relatedFactor, index }: Props) {
         </div>
       )}
 
-      {/* Verify URL */}
-      {detail?.verifyUrl && (
-        <div className="ml-9">
-          <a
-            href={detail.verifyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-          >
-            <ExternalLink className="size-3" />
-            {detail.verifyLabel ?? "Verificar en fuente oficial"}
-          </a>
+      {/* Contextual nav for doc/disc factors */}
+      {(() => {
+        const nav = relatedFactor
+          ? getNavLink(relatedFactor.factor_code, expedienteId, relatedFactor.evidence)
+          : null;
+        return nav ? (
+          <div className="ml-9">
+            <Link
+              href={nav.href}
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <ArrowRight className="size-3" />
+              {nav.label}
+            </Link>
+          </div>
+        ) : null;
+      })()}
+
+      {/* SAT data note for sat_* factors */}
+      {relatedFactor?.category === "sat" && relatedFactor.factor_code !== "art_49bis_no_verificable" && (
+        <div className="ml-9 flex items-start gap-1.5">
+          <Database className="size-3 shrink-0 mt-0.5 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            Verificado contra datos SAT importados en este sistema
+          </p>
         </div>
       )}
     </div>
