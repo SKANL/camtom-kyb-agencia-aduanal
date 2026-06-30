@@ -65,13 +65,13 @@ function buildNarrative(
     if (criticals.length > 0) {
       return `${razonSocial} no puede operar en comercio exterior bajo la Regla 1.4.14 RGCE 2026. Se activó bloqueo automático por ${criticals.length} factor(es) crítico(s): ${criticals.map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code).join("; ")}. La presencia en listas fiscales del SAT o discrepancias irreconciliables constituyen impedimento absoluto independientemente del score total (${score_total} pts).`;
     }
-    return `${razonSocial} acumula ${score_total} puntos de riesgo, superando el umbral crítico de 100 pts. Los factores de mayor impacto son: ${risks
+    return `${razonSocial} acumula ${score_total} puntos de riesgo, superando el umbral crítico de 70 pts. Los factores de mayor impacto son: ${risks
       .slice(0, 3)
       .map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code)
       .join(", ")}. Se requiere resolución de los puntos observados antes de autorizar operaciones de comercio exterior.`;
   }
 
-  return `${razonSocial} acumula ${score_total} puntos de riesgo (umbral de alerta: 30–99 pts). Se detectaron ${risks.length + criticals.length} factor(es) que requieren verificación manual: ${[...criticals, ...risks]
+  return `${razonSocial} acumula ${score_total} puntos de riesgo (umbral de alerta: 30–69 pts). Se detectaron ${risks.length + criticals.length} factor(es) que requieren verificación manual: ${[...criticals, ...risks]
     .slice(0, 3)
     .map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code)
     .join(", ")}. La empresa puede continuar el proceso sujeto a revisión documental adicional por parte del agente aduanal.`;
@@ -190,11 +190,11 @@ export default function ReportePage({
               </p>
               <p>
                 <span className="inline-block w-28 text-muted-foreground">Revisión:</span>
-                30 ≤ Score &lt; 100 pts o indicios menores
+                30 ≤ Score &lt; 70 pts o indicios menores
               </p>
               <p>
                 <span className="inline-block w-28 text-muted-foreground">Alto riesgo:</span>
-                Score ≥ 100 pts o bloqueo crítico activo
+                Score ≥ 70 pts o bloqueo crítico activo
               </p>
               <p className="text-muted-foreground/70 pt-1">
                 Bloqueos críticos: presencia en Art. 69-B definitivos, RFC inválido, o discrepancia irreconciliable entre documentos.
