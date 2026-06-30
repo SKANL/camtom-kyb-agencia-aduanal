@@ -192,6 +192,7 @@ _CLASSIFY_LABELS = {
     "poder_notarial": "Poder Notarial",
     "encargo_conferido": "Encargo Conferido",
     "manifestacion_protesta": "Manifestación bajo Protesta",
+    "rfc": "Cédula de Identificación Fiscal",
     "unknown": "Sin clasificar",
 }
 
