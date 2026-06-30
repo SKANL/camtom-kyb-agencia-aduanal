@@ -40,6 +40,32 @@ const CATEGORY_CHIP: Record<string, { label: string; className: string }> = {
   otro: { label: "Otro", className: "bg-muted text-muted-foreground" },
 };
 
+function renderEvidence(evidence: Record<string, unknown> | null): string | null {
+  if (!evidence || Object.keys(evidence).length === 0) return null;
+
+  const parts: string[] = [];
+
+  if (evidence.doc_type) {
+    const label = DOC_TYPE_LABELS[evidence.doc_type as string] ?? String(evidence.doc_type);
+    parts.push(`Documento afectado: ${label}`);
+  }
+  if (evidence.documento_id) {
+    const shortId = String(evidence.documento_id).slice(0, 8);
+    parts.push(`ID del documento: ${shortId}…`);
+  }
+  if (evidence.manual_review_required === true) {
+    parts.push("No existe lista pública del SAT para este artículo — requiere revisión manual por el agente");
+  }
+  if (typeof evidence.dias_antiguedad === "number") {
+    parts.push(`Antigüedad del documento: ${evidence.dias_antiguedad} días (límite: 90 días)`);
+  }
+  if (evidence.fecha_csf) {
+    parts.push(`Fecha de la CSF en expediente: ${evidence.fecha_csf}`);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function EvidenceDisplay({ evidence }: { evidence: Record<string, unknown> }) {
   const entries = Object.entries(evidence);
   return (
@@ -160,6 +186,13 @@ export function FactorDetailCard({
             <p className="text-xs text-muted-foreground leading-relaxed">{factor.legal_ref}</p>
           </div>
         </details>
+      )}
+
+      {factor.evidence && renderEvidence(factor.evidence) && (
+        <div className="mt-2 rounded-md bg-muted/50 px-3 py-2">
+          <p className="text-xs font-medium text-muted-foreground mb-0.5">Dato detectado</p>
+          <p className="text-xs text-foreground/80">{renderEvidence(factor.evidence)}</p>
+        </div>
       )}
     </div>
   );
