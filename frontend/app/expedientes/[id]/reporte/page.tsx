@@ -1,6 +1,11 @@
+"use client";
+import { use } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import useSWR from "swr";
 import { api, type EvaluationResult, type ConsultaSat, type EvaluationHistoryEntry } from "@/lib/api-client";
+import { useExpediente } from "@/hooks/use-expediente";
+import { useLatestEvaluation } from "@/hooks/use-expediente";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { FactorDetailCard } from "@/components/FactorDetailCard";
 import { StepperHeader } from "@/components/StepperHeader";
@@ -66,14 +71,19 @@ function buildNarrative(
       .join(", ")}. Se requiere resolución de los puntos observados antes de autorizar operaciones de comercio exterior.`;
   }
 
-  // review_required
   return `${razonSocial} acumula ${score_total} puntos de riesgo (umbral de alerta: 30–99 pts). Se detectaron ${risks.length + criticals.length} factor(es) que requieren verificación manual: ${[...criticals, ...risks]
     .slice(0, 3)
     .map((f) => FACTOR_LABELS[f.factor_code] ?? f.factor_code)
     .join(", ")}. La empresa puede continuar el proceso sujeto a revisión documental adicional por parte del agente aduanal.`;
 }
 
-function NeedsUpdateBanner({ expedienteId }: { expedienteId: string }) {
+function NeedsUpdateBanner({
+  expedienteId,
+  onEvaluated,
+}: {
+  expedienteId: string;
+  onEvaluated?: () => void;
+}) {
   return (
     <div className="rounded-xl border border-warning/40 bg-warning/5 px-5 py-4 flex items-start gap-3 mb-6">
       <AlertTriangle className="size-5 text-warning shrink-0 mt-0.5" />
@@ -83,32 +93,28 @@ function NeedsUpdateBanner({ expedienteId }: { expedienteId: string }) {
           Uno o más documentos han cambiado o vencido desde la última evaluación. Re-evaluá para obtener un resultado actualizado.
         </p>
       </div>
-      <EvaluateButton expedienteId={expedienteId} />
+      <EvaluateButton expedienteId={expedienteId} onEvaluated={onEvaluated} />
     </div>
   );
 }
 
-export default async function ReportePage({
+export default function ReportePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id } = use(params);
 
-  let expediente = null;
-  let evaluation = null;
-  let consultas: ConsultaSat[] = [];
-  let historialEvals: EvaluationHistoryEntry[] = [];
-  try {
-    [expediente, evaluation, consultas, historialEvals] = await Promise.all([
-      api.getExpediente(id),
-      api.getLatestEvaluation(id).catch(() => null),
-      api.listConsultasSat(id).catch(() => []),
-      api.listEvaluations(id).catch(() => []),
-    ]);
-  } catch {
-    // Build time
-  }
+  const { expediente } = useExpediente(id);
+  const { evaluation, mutate: mutateEvaluation } = useLatestEvaluation(id);
+  const { data: consultas = [] } = useSWR<ConsultaSat[]>(
+    `consultas-sat-report-${id}`,
+    () => api.listConsultasSat(id).catch(() => [])
+  );
+  const { data: historialEvals = [] } = useSWR<EvaluationHistoryEntry[]>(
+    `evaluations-history-${id}`,
+    () => api.listEvaluations(id).catch(() => [])
+  );
 
   if (!expediente) {
     return (
@@ -148,7 +154,7 @@ export default async function ReportePage({
       </div>
 
       {expediente.status === "needs_update" && (
-        <NeedsUpdateBanner expedienteId={id} />
+        <NeedsUpdateBanner expedienteId={id} onEvaluated={() => mutateEvaluation()} />
       )}
 
       {/* Score hero */}
@@ -160,7 +166,7 @@ export default async function ReportePage({
             <p className="text-muted-foreground text-sm">
               Aún no hay evaluación. Cargá los documentos y ejecutá la evaluación KYB.
             </p>
-            <EvaluateButton expedienteId={id} />
+            <EvaluateButton expedienteId={id} onEvaluated={() => mutateEvaluation()} />
           </div>
         )}
       </div>
@@ -250,7 +256,7 @@ export default async function ReportePage({
                 accion.toLowerCase().includes(f.factor_code.split("_")[0])
               ) ?? factoresConRiesgo[i] ?? factoresConRiesgo[0];
               return (
-                <ActionCard key={i} accion={accion} relatedFactor={relatedFactor} index={i} />
+                <ActionCard key={i} accion={accion} relatedFactor={relatedFactor} index={i} expedienteId={id} />
               );
             })}
           </div>
@@ -322,7 +328,7 @@ export default async function ReportePage({
 
       {/* Actions */}
       <div className="flex gap-3 flex-wrap">
-        <EvaluateButton expedienteId={id} />
+        <EvaluateButton expedienteId={id} onEvaluated={() => mutateEvaluation()} />
         <Link
           href={`/expedientes/${id}`}
           className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted transition-all"

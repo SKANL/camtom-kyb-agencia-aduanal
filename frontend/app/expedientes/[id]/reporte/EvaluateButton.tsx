@@ -6,7 +6,13 @@ import { revalidateExpedientes } from "@/hooks/use-expedientes";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 
-export function EvaluateButton({ expedienteId }: { expedienteId: string }) {
+export function EvaluateButton({
+  expedienteId,
+  onEvaluated,
+}: {
+  expedienteId: string;
+  onEvaluated?: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +24,11 @@ export function EvaluateButton({ expedienteId }: { expedienteId: string }) {
       await api.evaluate(expedienteId);
       await revalidateExpedientes();
       toast.success("Evaluación completada");
-      router.refresh();
+      if (onEvaluated) {
+        onEvaluated();
+      } else {
+        router.refresh();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al evaluar";
       setError(msg);
