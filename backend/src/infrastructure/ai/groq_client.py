@@ -3,9 +3,10 @@ from langchain_groq import ChatGroq
 
 # Task-specific model selection — override via environment variables for flexibility
 _MODELS: dict[str, str] = {
-    "classification": os.environ.get("GROQ_MODEL_CLASSIFICATION", "llama-3.1-8b-instant"),
+    "classification": os.environ.get("GROQ_MODEL_CLASSIFICATION", "meta-llama/llama-4-scout-17b-16e-instruct"),
     "extraction": os.environ.get("GROQ_MODEL_EXTRACTION", "llama-3.3-70b-versatile"),
     "similarity": os.environ.get("GROQ_MODEL_SIMILARITY", "qwen/qwen3-32b"),
+    "safety": os.environ.get("GROQ_MODEL_SAFETY", "meta-llama/llama-prompt-guard-2-86m"),
 }
 
 # Keep for backward compatibility — defaults to extraction model

@@ -86,7 +86,7 @@ def test_patch_documento_human_reviewed(client, fake_supabase):
     ]
     response = client.patch(
         f"/documentos/{doc_id}",
-        json={"rfc": "ABC123456789", "razon_social": "Mi Empresa SA"},
+        json={"fields": {"rfc": "ABC123456789", "razon_social": "Mi Empresa SA"}},
     )
     assert response.status_code == 200
     assert response.json()["extraction_status"] == "human_reviewed"

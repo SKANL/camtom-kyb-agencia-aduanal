@@ -2,7 +2,7 @@ import hashlib, json, uuid
 from datetime import datetime, timezone
 from typing import Callable
 
-SCHEMA_VERSION = "v1"
+SCHEMA_VERSION = "v2"  # invalidates stale v1 cache with null extracted fields
 
 def compute_input_hash(call_type: str, payload: dict) -> str:
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=True)

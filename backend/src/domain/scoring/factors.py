@@ -80,8 +80,14 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
             continue
         fields = doc.get("fields") or {}
         required = REQUIRED_FIELDS.get(doc["doc_type"], set())
-        if required and any(fields.get(f) in (None, "") for f in required):
-            factores.append(Factor("doc_data_incomplete", 15, False, f"El documento {doc['doc_type']} no aportó todos los campos obligatorios.", evidence={"documento_id": doc["id"]}))
+        missing = sorted(f for f in required if fields.get(f) in (None, ""))
+        if missing:
+            field_list = ", ".join(missing)
+            factores.append(Factor(
+                "doc_data_incomplete", 15, False,
+                f"El documento {doc['doc_type']} no aportó los campos: {field_list}.",
+                evidence={"documento_id": doc["id"], "missing_fields": missing},
+            ))
 
         fecha_str = fields.get("fecha_emision")
         fecha = None
@@ -101,12 +107,13 @@ def factores_completitud(documentos: list[dict], socios: list[dict], hoy) -> lis
                 factores.append(Factor("csf_stale", 25, False, f"La CSF es del {fecha.strftime('%B %Y')} — se requiere del mes en curso ({hoy.strftime('%B %Y')}).", evidence={"documento_id": doc["id"], "fecha_csf": str(fecha)}))
         if doc["doc_type"] == "manifestacion_protesta" and fields.get("declara_no_69b_49bis") is False:
             factores.append(Factor("manifestacion_incompleta", 20, False, "La Manifestación bajo Protesta no confirma la cláusula de los Art. 69-B / 49 Bis CFF."))
+        if doc["doc_type"] == "identificacion_rep_legal" and not fields.get("nombre_completo"):
+            factores.append(Factor("rep_legal_incompleto", 15, False,
+                "No se capturó el nombre completo del representante legal.",
+                evidence={"documento_id": doc["id"]}))
 
     acta = next((d for d in documentos if d["doc_type"] == "acta_constitutiva"), None)
-    if acta and not socios:
+    if acta and acta.get("extraction_status") == "human_reviewed" and not socios:
         factores.append(Factor("socios_incompletos", 20, False, "El acta constitutiva está presente pero no se registraron socios/accionistas/beneficiario controlador."))
 
-    rep_legal_doc = next((d for d in documentos if d["doc_type"] == "identificacion_rep_legal"), None)
-    if rep_legal_doc and not (rep_legal_doc.get("fields") or {}).get("nombre_completo"):
-        factores.append(Factor("rep_legal_incompleto", 15, False, "No se capturó el nombre completo del representante legal."))
     return factores
