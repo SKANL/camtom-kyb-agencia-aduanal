@@ -76,15 +76,6 @@ export type UploadDocumentoResult = {
   fields?: Record<string, unknown>;
 };
 
-export type SatImportRun = {
-  id: string;
-  list_type: string;
-  status: string;
-  rows_imported: number | null;
-  started_at: string | null;
-  finished_at: string | null;
-};
-
 export type ConsultaSat = {
   id: string;
   expediente_id: string;
@@ -238,16 +229,6 @@ export const api = {
 
   deleteDocumento: (id: string): Promise<void> =>
     request(`/documentos/${id}`, { method: "DELETE" }),
-
-  // Admin
-  triggerSatImport: (listType: string): Promise<SatImportRun> =>
-    request(`/admin/ingest/${listType}`, { method: "POST" }),
-
-  listSatImportRuns: (): Promise<SatImportRun[]> =>
-    request("/admin/sat-import-runs"),
-
-  seedDemo: (): Promise<{ expediente_ids: string[]; evaluations: unknown[]; message: string }> =>
-    request("/admin/demo/seed", { method: "POST" }),
 };
 
 // Backward compat for existing page.tsx
